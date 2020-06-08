@@ -14,13 +14,7 @@
 *.csv
 
 # explicitly allow all files in data_raw (by default)
-!data_raw/**/*
-
-# allow all files in documents (by default)
-!documents/**/*
-
-# allow all files in presentations (by default)
-!presentations/**/*
+!data/**/*
 
 # allow all files in docs
 !docs/**/*
