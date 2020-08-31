@@ -1,5 +1,9 @@
 # Plotting helper functions -------
 
+# color palette
+cb_palette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00", "#CC79A7")
+
+
 #' Figure Theme
 #' 
 #' Theme for figures with frequently used formatting instructions.
