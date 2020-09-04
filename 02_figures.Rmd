@@ -1,0 +1,304 @@
+---
+title: "Figures"
+date: "Last knitted on `r format(Sys.Date(), '%d %b %Y')`"
+author: "Ciara Asamoto, Sebastian Kopf"
+output:
+  html_document: 
+    df_print: paged # omit to disable paged data table output
+    css: stylesheet.css # omit if no need for custom stylesheet
+    number_sections: no # change to no for unnumbered sections
+    toc: yes # change to no to disable table of contents
+    toc_float: true # change to false to keep toc at the top
+    toc_depth: 3 # change to specify which headings to include in toc
+    code_folding: hide # change to 'show' to show code by default
+editor_options:
+  chunk_output_type: console # change to inline to show output inline
+---
+
+```{r setup, echo = FALSE, message=FALSE, warning=FALSE}
+# load libraries
+library(tidyverse) 
+library(latex2exp)
+library(cowplot)
+library(broom)
+source(file.path("scripts", "plotting_functions.R"))
+
+# global knitting options for automatic saving of all plots as .png and .pdf
+knitr::opts_chunk$set(
+  eval = FALSE,
+  dev = c("png", "pdf"), fig.keep = "all",
+  dev.args = list(pdf = list(encoding = "WinAnsi", useDingbats = FALSE)),
+  fig.path = file.path("figures", "figure_")
+)
+```
+
+# Load Data
+
+> NOTE: please knit the `calculations.Rmd` notebook first to prepare the data used for plotting.
+
+```{r, eval = TRUE}
+# load marine literature data
+marine <-
+  readxl::read_excel("data/literature.xlsx", sheet = "marine_data") %>% 
+    mutate(type = "marine", info = "marine")
+
+# load terrestrial literature data
+terrestrial <- 
+  readxl::read_excel("data/literature.xlsx", sheet = "terrestrial_data") %>% 
+    mutate(type = "terrestrial", info = reference)
+
+# load experiments info
+experiments <- readxl::read_excel(file.path("data", "experiments.xlsx"))
+
+# load strains info
+strains <- readxl::read_excel(file.path("data", "strains.xlsx")) 
+
+# load isotope data
+iso_data_w_t0 <- read_rds(file.path("cache", "iso_data_w_t0.rds"))
+
+```
+
+# Figure 2: Environmental Data
+
+```{r "2_environmental_data", fig.width = 8.5, fig.height = 6, warning = FALSE}
+# prepare data
+p2_data <- bind_rows(marine, terrestrial) %>% 
+  group_by(info) %>% mutate(n_datapoints = n()) %>% ungroup() %>% 
+  mutate(
+    info = case_when(
+      type == "marine" ~ sprintf("combined marine (%d points)\n(from %d publications)", n_datapoints, length(unique(marine$reference))),
+      TRUE ~ sprintf("%s (%d points)\n(%s)", environment, n_datapoints, reference) 
+    ) %>% factor() %>% fct_inorder()
+  )
+
+# define slopes
+x_range <- c(0, 60)
+y_offset <- -1
+slope_ribbons <- 
+  tibble(
+    intercept = y_offset,
+    slope = rep(c(1, 0.5), each = 2),
+    line = sprintf("%.1f", slope),
+    ribbon_width = rep(c(5, 3.5), each = 2),
+    x = c(x_range, x_range),
+    ymin = intercept + slope * x_range - ribbon_width,
+    ymax = intercept + slope * x_range + ribbon_width
+  )
+slope_lines <- 
+  tibble(
+    x = 5 + c(x_range * 0.55, x_range * 0.8),
+    slope = rep(c(1, 0.5), each = 2),
+    line = sprintf("%.1f", slope),
+    y = y_offset + slope * x
+  )
+slope_label <- latex2exp::TeX("$\\frac{^{18}\\epsilon}{^{15}\\epsilon}$ ratio")
+
+# generate plot
+p2 <- p2_data %>%
+  ggplot() +
+  # slope ribbons
+  geom_ribbon(
+    data = slope_ribbons,
+    mapping = aes(x = x, ymin = ymin, ymax = ymax, fill = line),
+    alpha = 0.2,
+    show.legend = TRUE
+  ) +
+  # slopes
+  geom_line(data = slope_lines, mapping = aes(x, y, linetype = line)) +
+  # arrows
+  geom_line(data = slope_lines,
+    mapping = aes(x, y, group = line),
+    linetype = 0, arrow = arrow(length = unit(0.03, "npc"), type = "closed")
+  ) + 
+  # data points
+  geom_point(
+    data = function(df) filter(df, type == "marine"), 
+    mapping = aes(d15N, d18O, color = info, shape = info),
+    size = 3, alpha = 0.3
+  ) +
+  geom_point(
+    data = function(df) filter(df, type == "terrestrial"),
+    mapping = aes(d15N, d18O, color = info, shape = info),
+    size = 3
+  ) +
+  coord_cartesian(xlim = c(0, 60), ylim = c(0, 40)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  scale_color_manual(values = c("black", cb_palette[c(7,2:6)]), drop = FALSE) +
+  scale_shape_manual(values = c(22, rep(19, 4), rep(17, 2)), drop = FALSE) +
+  scale_fill_manual(values = c("black", "grey")) +
+  scale_linetype_manual(values = c(2, 1)) +
+  theme_figure(text_size = 14) +
+  theme(legend.text = element_text(margin = margin(t = 3, b = 3))) +
+  guides(color=guide_legend(override.aes=list(fill=NA))) +
+  # labels
+  labs(
+    x = latex2exp::TeX("$\\delta^{15}N_{Air}$ of $NO_3^-$"),
+    y = latex2exp::TeX("$\\delta^{18}O_{VSMOW}$ of  $NO_3^-$"),
+    shape = "datasets", color = "datasets", 
+    linetype = slope_label, fill = slope_label
+  )
+
+# full plot
+p2
+```
+
+# Figure 3: PA14 WT & mutants
+
+```{r "3_PA_WT_and_mutants", fig.width = 8.5, fig.height = 3.5, eval = TRUE, warning=FALSE}
+# prepare data frame for plotting
+p3_data <- 
+  iso_data_w_t0 %>%
+  left_join(experiments, by = c("exp_id")) %>% 
+  left_join(strains, by = c("strain_id")) %>% 
+  filter(strain_id %in% c("PA14", "napKO", "narKO"), enriched_water != "yes") %>% 
+  mutate(
+    name = str_remove(name, "P. aeruginosa"),
+    name_medium = sprintf("%s (%s)", name, medium),
+    panel = factor(strain_id, levels = c("napKO", "PA14", "narKO")) %>% 
+      fct_recode(
+        "Nar only ($\\Delta{}napA$)" = "napKO",
+        "PA14 (WT)" = "PA14",
+        "Nap only ($\\Delta{}narG$)" = "narKO"
+      )
+  )
+
+# generate plot
+p3 <- p3_data %>% 
+  ggplot() +
+  aes(x = D_d15N, y = D_d18O, color = name_medium, shape = name_medium) +
+  # 0.5 and 1.0 reference lines
+  geom_abline(
+    data = tibble(
+      icept = 0, slope = c(1, 0.5), 
+      line = sprintf("%.1f", slope) %>% factor() %>% fct_inorder()
+    ),
+    mapping = aes(
+      x = NULL, y = NULL, color = NULL, shape = NULL,
+      intercept = icept, slope = slope, linetype = line
+    )
+  ) +
+  # data
+  geom_point(size = 4, alpha = 0.9) +
+  # plot styling
+  facet_wrap(~panel, scales = "free_x", nrow = 1, labeller = latex_labeller) +
+  scale_shape_manual(values = c(15, 0, 17, 2, 16)) +
+  scale_colour_manual(
+    values = c("#660099", "#660099", "#0066CC", "#0066CC","#CC0000")
+  ) +
+  theme_figure(text_size = 16) +
+  labs(
+     x = latex2exp::TeX("$\\Delta \\delta^{15}N$ of  $NO_3^-$"),
+     y = latex2exp::TeX("$\\Delta \\delta^{18}O$ of  $NO_3^-$"),
+     linetype = latex2exp::TeX("$\\frac{^{18}\\epsilon}{^{15}\\epsilon}$ ratio"),
+     shape = "experiment",
+     color = "experiment"
+  ) + 
+  guides(color = guide_legend(override.aes = list(linetype = 0)))
+
+# full plot without legend
+p3 + theme(legend.position = "none")
+```
+
+
+```{r "3_PA14_mutants"}
+
+allPA <- Dd_df %>% 
+  filter(bug_cat == "PA14" | bug_cat == "napKO" | bug_cat == "narKO")
+
+allPA$new = factor(allPA$bug_cat, levels=c("napKO","PA14","narKO"), labels=c("Nar only","PA14 (WT)","Nap only")) #labels reflect which reductase is being used, not which one has been KOed
+
+allPA %>%
+  filter(tracer == "N") %>%
+  ungroup() %>%
+  ggplot() +
+  geom_abline() +
+  geom_abline(slope = 0.5, linetype = 2) +
+  aes(d15.cal - d15_0, d18.cal - d18_0,color = new) +
+  geom_point(aes(shape = bug), size = 4, alpha = 0.9) +
+  scale_shape_manual(values = c(2, 17, 16,0,15)) +
+  scale_colour_manual(values = c("#0066CC","#660099","#CC0000", "#99FF33")) +
+  #scale_colour_manual(values = c("black","black","black")) +
+  scale_x_continuous(name = latex2exp::TeX("$\\Delta \\delta^{15}N$ of  $NO_3-$")) +
+  scale_y_continuous(name = latex2exp::TeX("$\\Delta \\delta^{18}O$ of  $NO_3-$")) +
+  facet_grid(~new, scales = "free") +
+  theme_bw(base_size = 20) +
+  theme(panel.grid.minor = element_blank(), legend.position = "none")
+
+# 8.49 x 3.48
+# 18O data exlcuded 
+```
+
+# O:N summary figure
+
+## plot o:n as epsilons- REPLICATES
+```{r fig.cap = "Fig. 4- Maximum clade credibility gene trees of the Nap and Nar reductases and a summary of known 18ε / 15ε values. Solid lines and dashed lines indicate 18ε / 15ε of 1.0 and 0.5, respectively. Data collected in this study indicated with an asterisk. Colors represent the nitrate reductase used by the bacteria and shapes represent the nitrate reductase(s) that are genetically encoded for each bacteria. Red, blue, and purple represent Nap, Nar, and both reductases, respectively. Triangles, circles, and squares represent Nap, Nar, and both reductases. E. coli TMAO reductase used as an outgroup in both gene trees. Literature data collected from (Frey et al., 2014; Granger et al., 2008; Wunderlich et al., 2012)."}
+
+plot <- calc_data %>%
+  ungroup() %>% 
+  mutate(
+    bug = as_factor(bug_cat) %>% fct_recode("S. loihica*" = "SL", "S. gotlandica" = "SG", "B. vireti*" = "BV", "P. denitrificans Nar*" = "PD", "R. sphaeroides" = "RS", "D. desulfuricans*" = "DD",  "PA14 Nar*" = "napKO",  "PA14 Nap*" = "narKO",  "P. chlororaphis" = "PC", "T. aromatica" = "TA", "A. aromaticum" = "EbN1", "B. bataviensis*" = "BB")
+  ) %>%
+  ggplot() +
+  aes(bug, on_ratio, ymin = on_ratio - on_ratio_er, ymax = on_ratio + on_ratio_er, color = enzyme_used, shape = enzyme_gen) +
+  geom_errorbar(width = 0) +
+  geom_hline(yintercept = 1) +
+  geom_hline(yintercept = 0.5, linetype = 2) +
+  geom_point(size = 4.5, stat = "unique", alpha = 0.9) +
+  #geom_point(aes(x = bug, y = on_ratio), alpha = 0.4, size = 2.2) +
+  scale_shape_manual(values = c(15, 17,16)) +
+  # 16 = circle, 15 = square, 17 = triangle
+  scale_color_manual(values = c("#660099", "#CC0000","#0066CC")) + # CC0000 = red, 660099 = purple, 0066CC = blue, I think it assigns alphabetically
+
+  expand_limits(y = c(0.25, 1)) +
+  theme_bw(base_size = 19) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), panel.grid.minor = element_blank(), legend.position = "none") +
+  #labs(linetype = latex2exp::TeX("$\\frac{^{18}\\epsilon}{^{15}\\epsilon}$")) +
+  scale_y_continuous(name = latex2exp::TeX("$^{18}\\epsilon :^{15}\\epsilon$"))
+
+plot + scale_x_discrete(limits=c( "T. aromatica", "A. aromaticum", "P. denitrificans Nar*", "P. chlororaphis", "PA14 Nar*",  "B. bataviensis*", "B. vireti*", "D. desulfuricans*", "S. gotlandica", "R. sphaeroides", "PA14 Nap*", "S. loihica*"), name = "Strain")
+
+#exported as 8.35 x 4.46 inches or 6.65 x 5.2
+## lit data is Dd18/Dd15 directly... double check that's what seb wanted!
+
+```
+
+# making data table
+```{r}
+table_df <- calc_data[!duplicated(calc_data$on_ratio),]
+
+table_df <- table_df %>% 
+  filter(bug_cat != "AA", bug_cat != "TA", bug_cat != "SG", bug_cat != "RS", bug_cat != "PC", bug != "NA") %>% 
+  select(bug, enzyme_gen, culture, exp, medium, on_ratio, on_ratio_er) %>% 
+  arrange(bug, culture)
+
+knitr::kable(table_df,
+             caption = "Table 1- Summary of all isotope fractionation experiments.", digits = 2)
+
+#write_xlsx(table_df, "table1.xlsx")
+```
+
+# tree stuff
+## load probabilty trees
+```{r}
+library(phytools)
+library(phangorn)
+tree_nap <- read.nexus("data/nap_tor.nex.trprobs")
+tree_nar <- read.nexus("data/nar_tor.nex.trprobs")
+```
+
+## plot nar
+```{r}
+cred_nar <- maxCladeCred(tree_nar)
+plotTree(cred_nar)
+```
+
+## plot nap
+```{r}
+cred_nap <- maxCladeCred(tree_nap)
+nap_rotate <- rotate(cred_nap, 7)
+plotTree(nap_rotate)
+
+#export nar as 5.0x3.5, nap as 5.0x1.3
+```
+
