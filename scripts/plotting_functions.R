@@ -1,7 +1,7 @@
 # Plotting helper functions -------
 
 # color palette
-cb_palette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00", "#CC79A7")
+cb_palette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00", "#CC79A7", "#000000")
 
 
 #' Figure Theme
@@ -14,7 +14,7 @@ cb_palette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00"
 #' @param axis_text_size font size for the axes' text (define only if different from text_size)
 #' @param axis_x_rotated whether to rotate the x axis labels
 theme_figure <- function(legend = TRUE, grid = TRUE, plot_margin = c(1, 1, 1, 1), 
-                         text_size = 20, axis_text_size = NULL, axis_x_rotate = 0) {
+                         text_size = 20, strip_text_size = NULL, axis_text_size = NULL, axis_x_rotate = 0) {
   the_theme <- theme_bw() + 
     theme(text = element_text(size = text_size),
           plot.background = element_blank(), panel.background = element_blank(),
@@ -30,6 +30,11 @@ theme_figure <- function(legend = TRUE, grid = TRUE, plot_margin = c(1, 1, 1, 1)
   # adjust legend
   if (!legend)
     the_theme <- the_theme + theme(legend.position = "none")
+  # overwrite strip text size if provided
+  if (!is.null(strip_text_size)) {
+    the_theme <- the_theme +
+      theme(strip.text = element_text(size = strip_text_size))
+  }
   # overwrite axis text size if provided
   if (!is.null(axis_text_size))
     the_theme <- the_theme + 
