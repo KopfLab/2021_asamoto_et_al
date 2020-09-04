@@ -50,3 +50,6 @@ packrat/src/
 
 # exclude cache
 *cache/*
+
+# exclude prep files
+prep*
