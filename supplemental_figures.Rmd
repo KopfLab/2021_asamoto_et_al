@@ -1,0 +1,370 @@
+---
+title: "Supplemental Figures"
+date: "Last knitted on `r format(Sys.Date(), '%d %b %Y')`"
+author: "Ciara Asamoto, Sebastian Kopf"
+output:
+  html_document: 
+    df_print: paged # omit to disable paged data table output
+    css: stylesheet.css # omit if no need for custom stylesheet
+    number_sections: no # change to no for unnumbered sections
+    toc: yes # change to no to disable table of contents
+    toc_float: true # change to false to keep toc at the top
+    toc_depth: 3 # change to specify which headings to include in toc
+    code_folding: hide # change to 'show' to show code by default
+editor_options:
+  chunk_output_type: console # change to inline to show output inline
+---
+
+```{r setup, echo = FALSE, message=FALSE, warning=FALSE}
+# load libraries
+library(tidyverse) 
+library(latex2exp)
+library(readxl)
+source(file.path("scripts", "plotting_functions.R"))
+source(file.path("scripts", "table_functions.R"))
+
+# global knitting options for automatic saving of all plots as .png and .pdf
+knitr::opts_chunk$set(
+  dev = c("png", "pdf"), fig.keep = "all",
+  dev.args = list(pdf = list(encoding = "WinAnsi", useDingbats = FALSE)),
+  fig.path = file.path("figures", "figure_S")
+)
+```
+
+# Load Data
+
+> NOTE: please knit the `calculations.Rmd` notebook first to prepare the data used here.
+
+```{r}
+# load experiments info
+experiments <- readxl::read_excel(file.path("data", "experiments.xlsx"))
+
+# load strains info
+strains <- readxl::read_excel(file.path("data", "strains.xlsx")) 
+
+# load concentration data
+conc_data_w_t0 <- read_rds(file.path("cache", "conc_data_w_t0.rds"))
+
+# load isotope data
+iso_data_w_t0 <- read_rds(file.path("cache", "iso_data_w_t0.rds"))
+
+# load growth data
+growth_data <- readxl::read_excel(file.path("data", "data.xlsx"), sheet = "growth_data")
+
+# load growth rates data
+growth_rates_data <- read_rds(file.path("cache", "growth_rates_data.rds"))
+
+# fractionation factors
+eps_data <- read_rds(file.path("cache", "eps_data.rds"))
+
+# fractionationc coupling
+coupling_data <- read_rds(file.path("cache", "coupling_data.rds"))
+```
+
+# Table S1: Expanded Data Summary
+
+```{r}
+# prepare data
+all_data <- 
+  experiments %>% 
+  left_join(strains, by = c("strain_id")) %>% 
+  right_join(eps_data, by = c("exp_id")) %>% 
+  left_join(coupling_data, by = c("strain_id", "medium")) %>% 
+  left_join(growth_rates_data, by = c("exp_id", "culture")) %>% 
+  arrange(name, medium, exp_id, culture) %>% 
+  transmute(
+    Species = name,
+    `Reductase genes` = nitrate_reductases,
+    Medium = medium,
+    Tracer = enriched_water,
+    `18eps / 15eps` = sprintf("%.2f +/- %.2f", ON_ratio, ON_ratio_se),
+    `15eps` = sprintf("%.1f +/- %.1f", eps15N.permil, eps15N_se.permil),
+    `18eps` = sprintf("%.1f +/- %.1f", eps18O.permil, eps18O_se.permil),
+    `Growth rate (1/hour)` = ifelse(!is.na(mu.1_hr), sprintf("%.2f +/- %.2f", mu.1_hr, mu_se.1_hr), NA),
+  )
+
+# save table
+all_data %>% 
+  mutate(
+    same_species = c("DNE", head(Species, -1)) == Species,
+    same_medium = same_species & c("DNE", head(Medium, -1)) == Medium,
+    same_tracer = c("DNE", head(Tracer, -1)) == Tracer,
+    Species = ifelse(same_species, NA_character_, Species),
+    `Reductase genes` = ifelse(same_species, NA_character_, `Reductase genes`),
+    Medium = case_when(
+      same_medium & same_tracer ~ NA_character_,
+      Tracer == "yes" ~ paste(Medium, "+", "18O water"),
+      TRUE ~ Medium
+    ),
+    `18eps / 15eps` = ifelse(same_medium, NA_character_, `18eps / 15eps`)
+  ) %>% 
+  select(-Tracer, -starts_with("same_")) %>% 
+  export_to_excel(file = file.path("tables", "table_S1.xlsx"))
+  
+all_data
+```
+
+# Prepare Plots
+
+```{r "base_plot"}
+# experiment and strain info combined
+exp_strains <- 
+  experiments %>% 
+  left_join(
+    select(strains, strain_id, name, nitrate_reductases), 
+    by = c("strain_id")
+  ) %>% 
+  mutate(
+    name = str_replace(name, "\U0394", "$\\\\Delta$"),
+    panel = sprintf("%s (%s)", name, medium) %>% factor(),
+    medium = paste("Medium:", medium),
+  )
+
+# generate plot template for most of the SI plots
+base_plot <- 
+  ggplot() +
+  aes(color = as.factor(culture), shape = enriched_water) +
+  facet_wrap(~panel, ncol = 3, scales = "free", labeller = latex_labeller, drop = FALSE) +
+  theme_figure(text_size = 16, strip_text_size = 10) +
+  scale_color_manual(values = cb_palette) +
+  labs(color = "Culture", shape = latex2exp::TeX("$^{18}$O water added?"))
+```
+
+# Figure S1: Growth curves
+
+```{r "2_OD_vs_time", fig.width=10, fig.height=10, warning=FALSE}
+# prepare data frame for plotting
+ps1_data <- 
+  growth_data %>% 
+  left_join(exp_strains, by = c("exp_id"))
+ps1_fit <- 
+  growth_rates_data %>% 
+  left_join(exp_strains, by = c("exp_id")) %>% 
+  mutate(hour = map2(hour_min, hour_max, seq, length.out = 100)) %>% 
+  unnest(hour) %>% 
+  mutate(OD = K/(1 + ((K - OD0)/OD0) * exp(-mu.1_hr * hour)))
+
+# generate plot
+ps1 <- 
+  base_plot %+%
+  ps1_data %+%
+  aes(x = hour, y = OD) +
+  # fit
+  geom_line(
+    data = ps1_fit, 
+    mapping = aes(shape = NULL, group = paste(exp_id, culture))
+  ) +
+  # data
+  geom_point(size = 3) +
+  # labels
+  labs(x = "Time (hours)", y = "OD")
+
+ps1
+```
+
+# Figure S2: Nitrate & nitrite concentrations over time
+
+```{r "2_nitrate_nitrite_vs_time", fig.width=10, fig.height=10, warning=FALSE}
+# prepare data frame for plotting
+ps2_data <- 
+  left_join(conc_data_w_t0, iso_data_w_t0, by = c("exp_id", "culture", "timepoint")) %>%
+  left_join(exp_strains, by = c("exp_id")) %>% 
+  mutate(NO2.mM = ifelse(is.na(NO2.mM), 0, NO2.mM)) %>% 
+  pivot_longer(c(NO3.mM, NO2.mM), names_to = "var", values_to = "val") %>% 
+  filter(!is.na(hour), !is.na(val)) %>% 
+  mutate(
+    conc = factor(var) %>% fct_rev() %>% fct_recode(
+      "$NO_2^-$ (mM)" = "NO2.mM",
+      "$NO_3^-$ (mM)" = "NO3.mM"
+    )
+  )
+
+# generate plot
+ps2 <- 
+  base_plot %+% 
+  ps2_data %+%
+  aes(x = hour, y = val, linetype = conc) +
+  # data
+  geom_line() +
+  geom_point(size = 3) +
+  # star IC purified data points
+  geom_text(
+    data = function(df) 
+      filter(df, var == "NO2.mM", str_detect(treatment, fixed("IC"))) %>% 
+      mutate(label = "*"),
+    mapping = aes(label = label), size = 8, color = "black", 
+    hjust = 0.5, vjust = 0.5, nudge_x = -1, nudge_y = -0.5
+  ) +
+  # scales and labels
+  scale_linetype_manual(values = c(1, 2), labels = latex_labeller) + 
+  labs(x = "Time (hours)", y = "Concentration", linetype = "Concentration")
+
+ps2
+```
+
+# Figure S3: $\Delta\delta^{15}$N vs. $\ln f$
+
+```{r "3_Dd15N_vs_lnf", fig.width=10, fig.height=10, warning=FALSE}
+# prepare data frame for plotting (all cultures with more than 2 data points)
+ps3_4_data <- 
+  inner_join(conc_data_w_t0, iso_data_w_t0, by = c("exp_id", "culture", "timepoint")) %>%
+  left_join(exp_strains, by = c("exp_id")) %>% 
+  group_by(exp_id, culture) %>% filter(n() > 2L) %>% ungroup()
+
+# generate plot
+ps3 <- 
+  base_plot %+% 
+  ps3_4_data %+%
+  aes(x = ln_NO3, y = D_d15N) +
+  # linear regression fits
+  geom_smooth(method = lm, formula = y ~ x, se = FALSE) +
+  # data
+  geom_point(size = 3) +
+  # star IC purified data points
+  geom_text(
+    data = function(df) 
+      filter(df, str_detect(treatment, fixed("IC"))) %>% 
+      mutate(label = "*"),
+    mapping = aes(label = label), size = 8, color = "black", 
+    hjust = 0.5, vjust = 0.5, nudge_x = -0.1, nudge_y = -0.5
+  ) +
+  # scales and labels
+  scale_x_reverse() +
+  labs(
+     x = latex2exp::TeX("ln(\\[NO_3^-\\] / \\[NO_3^-\\]_{initial})$"),
+     y = latex2exp::TeX("$\\Delta \\delta^{15}N$ of  $NO_3^-$")
+  )
+
+ps3
+```
+
+# Figure S4: $\Delta\delta^{18}$O vs. $\ln f$
+
+```{r "4_Dd18O_vs_lnf", fig.width=10, fig.height=10, warning=FALSE}
+# generate plot
+ps4 <- 
+  base_plot %+% 
+  ps3_4_data %+% # same data as in fig. S3
+  aes(x = ln_NO3, y = D_d18O) +
+  # linear regression fits
+  geom_smooth(method = lm, formula = y ~ x, se = FALSE) +
+  # data
+  geom_point(size = 3) +
+  # star IC purified data points
+  geom_text(
+    data = function(df) 
+      filter(df, str_detect(treatment, fixed("IC"))) %>% 
+      mutate(label = "*"),
+    mapping = aes(label = label), size = 8, color = "black", 
+    hjust = 0.5, vjust = 0.5, nudge_x = -0.1, nudge_y = -0.5
+  ) +
+  # scales and labels
+  scale_x_reverse() +
+  labs(
+     x = latex2exp::TeX("ln(\\[NO_3^-\\] / \\[NO_3^-\\]_{initial})$"),
+     y = latex2exp::TeX("$\\Delta \\delta^{18}O$ of  $NO_3^-$")
+  )
+
+ps4
+```
+
+# Figure S5: $\Delta\delta^{18}$O vs. $\Delta\delta^{15}$N
+
+```{r "5_Dd18O_vs_Dd15N", fig.width=10, fig.height=10, warning=FALSE}
+# prepare data frame for plotting
+ps5_data <- 
+  iso_data_w_t0 %>%
+  left_join(exp_strains, by = c("exp_id"))
+
+# generate plot
+ps5 <- 
+  base_plot %+% 
+  ps5_data %+%
+  aes(x = D_d15N, y = D_d18O) +
+  # 0.5 and 1.0 reference lines
+  geom_abline(
+    data = tibble(
+      icept = 0, slope = c(1, 0.5), 
+      line = sprintf("%.1f", slope) %>% factor() %>% fct_inorder()
+    ),
+    mapping = aes(
+      x = NULL, y = NULL, color = NULL, shape = NULL,
+      intercept = icept, slope = slope, linetype = line
+    )
+  ) +
+  # linear regression fits
+  geom_smooth(
+    mapping = aes(color = NULL, shape = NULL),
+    method = lm, formula = y ~ x, se = FALSE, color = "red",
+    show.legend = FALSE
+  ) +
+  # data
+  geom_point(size = 3) +
+  # star IC purified data points
+  geom_text(
+    data = function(df) 
+      filter(df, str_detect(treatment, fixed("IC"))) %>% mutate(label = "*"),
+    mapping = aes(label = label), size = 8, color = "black", 
+    hjust = 0.5, vjust = 0.5, nudge_x = -1.5, nudge_y = -0.5
+  ) +
+  # scales and labels
+  labs(
+     x = latex2exp::TeX("$\\Delta \\delta^{15}N$ of  $NO_3^-$"),
+     y = latex2exp::TeX("$\\Delta \\delta^{18}O$ of  $NO_3^-$"),
+     linetype = latex2exp::TeX("$\\frac{^{18}\\epsilon}{^{15}\\epsilon}$ ratio")
+  ) + 
+  guides(color = guide_legend(override.aes = list(linetype = 0)))
+
+ps5
+```
+
+# Figure S6: 18O water data
+
+```{r "6_18O_experiments", fig.width = 9, fig.height = 5, warning=FALSE, message=FALSE}
+# prepare data frame for plotting
+ps6_data <- 
+  iso_data_w_t0 %>%
+  left_join(exp_strains, by = c("exp_id")) %>% 
+  filter(enriched_water == "yes") %>% 
+  mutate(
+    panel = name %>% fct_drop() %>% { fct_relevel(., levels(.)[c(2,4,3,1)]) }
+  )
+
+# generate plot
+ps6 <- 
+  base_plot %+% 
+  ps6_data %+%
+  aes(
+    x = D_d15N, y = D_d18O, 
+    color = nitrate_reductases, shape = nitrate_reductases
+  ) +
+  # 0.5 and 1.0 reference lines
+  geom_abline(
+    data = tibble(
+      icept = 0, slope = c(1, 0.5), 
+      line = sprintf("%.1f", slope) %>% factor() %>% fct_inorder()
+    ),
+    mapping = aes(
+      x = NULL, y = NULL, color = NULL, shape = NULL,
+      intercept = icept, slope = slope, linetype = line
+    )
+  ) +
+  # data
+  geom_point(size = 4, alpha = 0.9) +
+  # scales and labels
+  scale_shape_manual(values = c(15, 17, 16)) +
+  scale_colour_manual(
+    values = c("#660099", "#0066CC", "#CC0000")
+  ) +
+  labs(
+     x = latex2exp::TeX("$\\Delta \\delta^{15}N$ of  $NO_3^-$"),
+     y = latex2exp::TeX("$\\Delta \\delta^{18}O$ of  $NO_3^-$"),
+     linetype = latex2exp::TeX("$\\frac{^{18}\\epsilon}{^{15}\\epsilon}$ ratio"),
+     color = "reductases", shape = "reductases"
+  ) + 
+  guides(color = guide_legend(override.aes = list(linetype = 0)))
+
+ps6
+```
+
+
