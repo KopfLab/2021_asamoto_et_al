@@ -1,0 +1,160 @@
+---
+title: "Calculations"
+date: "Last knitted on `r format(Sys.Date(), '%d %b %Y')`"
+author: "Ciara Asamoto, Sebastian Kopf"
+output:
+  html_document: 
+    df_print: paged # omit to disable paged data table output
+    css: stylesheet.css # omit if no need for custom stylesheet
+    number_sections: no # change to no for unnumbered sections
+    toc: yes # change to no to disable table of contents
+    toc_float: true # change to false to keep toc at the top
+    toc_depth: 3 # change to specify which headings to include in toc
+    code_folding: hide # change to 'show' to show code by default
+editor_options:
+  chunk_output_type: console # change to inline to show output inline
+---
+
+```{r setup, echo = FALSE, message=FALSE, warning=FALSE}
+# load libraries
+library(tidyverse) 
+library(broom)
+library(minpack.lm)
+source(file.path("scripts", "growth_functions.R"))
+```
+
+# Load Data 
+
+```{r}
+# load experiments info
+experiments <- readxl::read_excel(file.path("data", "experiments.xlsx"))
+
+# load concentration data
+conc_data <- readxl::read_excel(file.path("data", "data.xlsx"), sheet = "conc_data")
+
+# load iso data
+iso_data <- readxl::read_excel(file.path("data", "data.xlsx"), sheet = "iso_data")
+
+# growth data
+growth_data <- readxl::read_excel(file.path("data", "data.xlsx"), sheet = "growth_data")
+```
+
+# Prepare Data
+
+```{r}
+# prepare concentration data
+conc_data_w_t0 <- 
+  conc_data %>% 
+  # determine t0 concentrations and ln space offset
+  group_by(exp_id, culture) %>% 
+  mutate(
+    NO3_0.mM = NO3.mM[timepoint == 0],
+    ln_NO3 = log(NO3.mM / NO3_0.mM),
+  ) %>% 
+  ungroup()
+
+# prepare isotope data
+iso_data_w_t0 <-
+  iso_data %>%
+  # determine t0 isotopic compositions
+  mutate(
+    d15N_0.permil = mean(d15N.permil[timepoint == 0]),
+    d15N_0_sd.permil = sd(d15N.permil[timepoint == 0]),
+    d18O_0.permil = mean(d18O.permil[timepoint == 0]),
+    d18O_0_sd.permil = sd(d18O.permil[timepoint == 0]),
+    t0_n = sum(timepoint == 0)
+  ) %>%
+  # determine isotopic offsets from t0
+  mutate(
+    D_d15N = d15N.permil - d15N_0.permil,
+    D_d18O = d18O.permil - d18O_0.permil,
+    ln_d15N = log((d15N.permil/ 1000 + 1) / (d15N_0.permil /1000 +1)),
+    ln_d18O = log((d18O.permil/ 1000 + 1) / (d18O_0.permil /1000 +1))
+  )
+
+# cache
+write_rds(conc_data_w_t0, path = file.path("cache", "conc_data_w_t0.rds"))
+write_rds(iso_data_w_t0, path = file.path("cache", "iso_data_w_t0.rds"))
+```
+
+# Calculate fractionation factors
+
+```{r}
+# calculate fractionation factors for all culture replicates with
+# more than 2 data points to get an error estimate
+# see figures S3 and S4 for visual representation
+eps_data <-
+  inner_join(conc_data_w_t0, iso_data_w_t0, by = c("exp_id", "culture", "timepoint")) %>% 
+  group_by(exp_id, culture) %>% filter(n() > 2L) %>% ungroup() %>% 
+  nest(data = c(-exp_id, -culture)) %>%
+  mutate(
+    n_datapoints = map_int(data, nrow),
+    fit_15N = map(data, ~lm(ln_d15N ~ ln_NO3, data = .x)),
+    coefs_15N = map(fit_15N, tidy),
+    summary_15N = map(fit_15N, glance),
+    eps15N.permil = map_dbl(coefs_15N, ~filter(.x, term == "ln_NO3")$estimate * 1000),
+    eps15N_se.permil = map_dbl(coefs_15N, ~filter(.x, term == "ln_NO3")$std.error * 1000),
+    fit_18O = map(data, ~lm(ln_d18O ~ ln_NO3, data = .x)),
+    coefs_18O = map(fit_18O, tidy),
+    summary_18O = map(fit_18O, glance),
+    eps18O.permil = map_dbl(coefs_18O, ~filter(.x, term == "ln_NO3")$estimate * 1000),
+    eps18O_se.permil = map_dbl(coefs_18O, ~filter(.x, term == "ln_NO3")$std.error * 1000)
+  ) %>% 
+  select(-data, -starts_with("fit"), -starts_with("coefs"), -starts_with("summary"))
+
+# cache
+write_rds(eps_data, path = file.path("cache", "eps_data.rds"))
+eps_data
+```
+
+# Calculate $\epsilon^{18}O$ : $\epsilon^{15}N$ coupling
+
+```{r}
+# calculate coupling across all replicates in the same medium
+# see figure S5 for visual representation
+coupling_data <-
+  iso_data_w_t0 %>% 
+  left_join(experiments, by = "exp_id") %>% 
+  nest(data = c(-strain_id, -medium)) %>% 
+  mutate(
+    n_datapoints = map_int(data, nrow),
+    fit = map(data, ~lm(ln_d18O ~ ln_d15N, data = .x)),
+    coefs = map(fit, tidy),
+    summary = map(fit, glance),
+    ON_ratio = map_dbl(coefs, ~filter(.x, term == "ln_d15N")$estimate),
+    ON_ratio_se = map_dbl(coefs, ~filter(.x, term == "ln_d15N")$std.error)
+  ) %>% 
+  select(strain_id, medium, n_datapoints, ON_ratio, ON_ratio_se)
+
+# cache
+write_rds(coupling_data, path = file.path("cache", "coupling_data.rds"))
+coupling_data
+```
+
+# Calculate growth rates
+
+```{r}
+# calculate growth rates for each replicate
+growth_rates_data <- 
+  growth_data %>% 
+  nest(data = c(-exp_id, -culture))%>% 
+  mutate(
+    n_datapoints = map_int(data, nrow),
+    fit = map(data, ~SummarizeGrowth(.x$hour, .x$OD)),
+    info = map(fit, ~as.data.frame(setNames(as.list(as.numeric(.x$vals)), names(.x$vals)))),
+    hour_min = map_dbl(data, ~min(.x$hour)), # data range min
+    hour_max = map_dbl(data, ~max(.x$hour)) # data range max
+  ) %>% 
+  unnest(info) %>% 
+  select(
+    exp_id, culture, n_datapoints, hour_min, hour_max,
+    OD0 = n0, # OD at t0
+    K = k, # carrying capacity (i.e. OD max)
+    mu.1_hr = r, # growth rate in 1/hr
+    mu_se.1_hr = r_se # standard error of the growth rate
+  )
+
+# cache
+write_rds(growth_rates_data, path = file.path("cache", "growth_rates_data.rds"))
+growth_rates_data
+```
