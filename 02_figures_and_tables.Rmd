@@ -61,6 +61,7 @@ iso_data_w_t0 <- read_rds(file.path("cache", "iso_data_w_t0.rds"))
 
 # fractionationc coupling
 coupling_data <- read_rds(file.path("cache", "coupling_data.rds"))
+
 ```
 
 # Table 1: $\epsilon^{18}O / \epsilon^{15}N$
@@ -325,3 +326,24 @@ p4 + theme(legend.position = "none")
 
 
 ## Tree
+```{r}
+library(phytools)
+library(phangorn)
+tree_nap <- read.nexus("data/nap_tree.nex.trprobs")
+tree_nar <- read.nexus("data/nar_tree.nex.trprobs")
+
+```
+
+## plot narG tree
+```{r}
+cred_nar <- maxCladeCred(tree_nar)
+plotTree(cred_nar)
+```
+
+## plot napA tree
+```{r}
+cred_nap <- maxCladeCred(tree_nap)
+nap_rotate <- rotate(cred_nap, 7)
+plotTree(nap_rotate)
+```
+

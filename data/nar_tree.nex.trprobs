@@ -1,0 +1,21 @@
+#NEXUS
+[ID: 3620046241]
+[This file contains the trees that were found during the MCMC
+search, sorted by posterior probability. "p" indicates the
+posterior probability of the tree whereas "P" indicates the
+cumulative posterior probability.]
+
+begin trees;
+   translate
+    1 Ecoli_TorZ,
+    2 Tarom_Nar,
+    3 Aarom_Nar,
+    4 PD_Nar,
+    5 Pchlor_Nar,
+    6 PA14_Nar,
+    7 Bbat_Nar,
+    8 Bvireti_Nar;
+   tree tree_1 [p = 0.742, P = 0.742] = [&W 0.741722] ((8,7),(((6,5),4),(2,3)),1);
+   tree tree_2 [p = 0.209, P = 0.950] = [&W 0.208609] (7,(8,(((6,5),4),(2,3))),1);
+   tree tree_3 [p = 0.050, P = 1.000] = [&W 0.049669] (8,(7,(((6,5),4),(2,3))),1);
+end;
