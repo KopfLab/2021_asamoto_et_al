@@ -276,7 +276,7 @@ p4_data <-
   # include italic and symbols for sources
   mutate(
     name = sprintf("$\\textit{%s}^{%s}$", name, sources) %>% 
-      str_replace("\U0394(.*)", "}\\\\Delta{}{\\1") %>% 
+      str_replace("\U0394(.*)", "}\\\\,\\\\Delta{}{\\1") %>% 
       factor() %>% fct_inorder()
   )
 
