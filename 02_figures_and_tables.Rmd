@@ -76,7 +76,8 @@ table_data <-
     Species = name,
     `Reductase genes` = nitrate_reductases,
     Medium = medium,
-    `18eps / 15eps` = sprintf("%.2f +/- %.2f", ON_ratio, ON_ratio_se)
+    `18eps / 15eps` = sprintf("%.2f +/- %.2f", ON_ratio, ON_ratio_se),
+    n = n_datapoints
   )
 
 # save table
