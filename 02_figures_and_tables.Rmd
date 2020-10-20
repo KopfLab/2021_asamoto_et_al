@@ -22,10 +22,11 @@ library(latex2exp)
 library(cowplot)
 library(broom)
 source(file.path("scripts", "plotting_functions.R"))
+source(file.path("scripts", "table_functions.R"))
 
 # global knitting options for automatic saving of all plots as .png and .pdf
 knitr::opts_chunk$set(
-  eval = FALSE,
+  eval = TRUE,
   dev = c("png", "pdf"), fig.keep = "all",
   dev.args = list(pdf = list(encoding = "WinAnsi", useDingbats = FALSE)),
   fig.path = file.path("figures", "figure_")
@@ -160,7 +161,7 @@ p2 <- p2_data %>%
   guides(color=guide_legend(override.aes=list(fill=NA))) +
   # labels
   labs(
-    x = latex2exp::TeX("$\\delta^{15}N}$ of $NO_3^-$ vs Air"),
+    x = latex2exp::TeX("$\\delta^{15}N$ of $NO_3^-$ vs Air"),
     y = latex2exp::TeX("$\\delta^{18}O$ of $NO_3^-$ vs VSMOW"),
     shape = "datasets", color = "datasets", 
     linetype = slope_label, fill = slope_label
@@ -229,9 +230,9 @@ p3 + theme(legend.position = "none")
 
 # Figure 4: $\epsilon^{18}O / \epsilon^{15}N$
 
-## Isotopic Data
+## Data preparation
 
-```{r "4_18_15_ratio_summary", fig.width = 4.5, fig.height = 6.5, eval = TRUE, warning=FALSE}
+```{r "iso data prep"}
 # combine data for plotting
 p4_data_all <-
   # summarize data from this study and the literature
@@ -280,8 +281,12 @@ p4_data <-
       str_replace("\U0394(.*)", "}\\\\,\\\\Delta{}{\\1") %>% 
       factor() %>% fct_inorder()
   )
+```
 
-# generate plot
+## Isotope data plots
+
+```{r "4_18_15_ratio_summary_main", fig.width = 4.5, fig.height = 6.5, eval = TRUE, warning=FALSE}
+# generate main plot
 p4 <- p4_data %>% 
   ggplot() +
   aes(name, ON_ratio_mean, ymin = ON_ratio_min, ymax = ON_ratio_max, color = nitrate_reductases, shape = nitrate_reductases) +
@@ -298,23 +303,19 @@ p4 <- p4_data %>%
     )
   ) +
   # data
-  geom_point(size = 4.5, stat = "unique", alpha = 0.9) +
+  geom_point(size = 4.5, stat = "unique") +
   # plot styling
   scale_shape_manual(values = c(15, 17, 16)) +
   scale_color_manual(values = c("#660099", "#CC0000", "#0066CC")) +
   scale_x_discrete(
     labels = function(x) latex_labeller(x) %>% unlist() %>% unname()
   ) +
-  scale_y_continuous(
-    breaks = c(5:10) * 0.1,
-    sec.axis = dup_axis(name = latex2exp::TeX("$^{18}\\epsilon :^{15}\\epsilon$")),
-    expand = c(0, 0)
-  ) +
+  scale_y_continuous(breaks = c(5:10) * 0.1, expand = c(0, 0)) +
   expand_limits(y = c(0.40, 1.1)) +
   theme_figure(text_size = 16) +
   theme(axis.text.y = element_text(hjust = 0, vjust = 0.5)) +
   labs(
-    x = NULL, y = NULL,
+    x = NULL, y = latex2exp::TeX("$^{18}\\epsilon :^{15}\\epsilon$"),
     linetype = latex2exp::TeX("$\\frac{^{18}\\epsilon}{^{15}\\epsilon}$"),
     color = "Reductase gene(s)", shape = "Reductase gene(s)"
   ) +
@@ -326,25 +327,108 @@ p4 + theme(legend.position = "none")
 ```
 
 
-## Tree
-```{r}
-library(phytools)
-library(phangorn)
-tree_nap <- read.nexus("data/nap_tree.nex.trprobs")
-tree_nar <- read.nexus("data/nar_tree.nex.trprobs")
+```{r "4_18_15_ratio_summary_top", fig.width = 4.5, fig.height = 3, eval = TRUE, warning=FALSE}
+# generate top plot
+p4_top <-
+  p4_data_all %>% 
+  left_join(sources, by = "source") %>% 
+  left_join(strains, by = "strain_id") %>% 
+  mutate(nitrate_reductases = factor(nitrate_reductases)) %>%
+  filter(nitrate_reductases %in% c("napA", "narG")) %>%
+  ggplot() + 
+  aes(x = ON_ratio, after_stat(scaled), fill = nitrate_reductases) + 
+  geom_density(trim = FALSE, alpha = 1.0) + 
+  scale_x_continuous(breaks = c(5:10) * 0.1, expand = c(0, 0) ) +
+  scale_y_continuous(labels = function(x) sprintf("%.0f%%", 100*x), expand = c(0, 0)) +
+  scale_fill_manual(values = c("#660099", "#CC0000", "#0066CC"), drop = FALSE, guide = "none") +
+  expand_limits(x = c(0.3, 1.2)) +
+  coord_cartesian(x = c(0.40, 1.1), y = c(0, 1.05)) +
+  theme_figure(text_size = 16, grid = FALSE) +
+  theme(axis.ticks.y = element_blank(), axis.text.y = element_blank()) +
+  labs(y = "distribution", x = latex2exp::TeX("$^{18}\\epsilon :^{15}\\epsilon$")) 
 
+p4_top + theme(legend.position = "none")
 ```
 
-## plot narG tree
-```{r}
-cred_nar <- maxCladeCred(tree_nar)
-plotTree(cred_nar)
+## Phylogenetic tree
+
+```{r "4_18_15_ratio_summary_tree", fig.width = 2.5, fig.height = 6, eval = TRUE, warning=FALSE, message=FALSE}
+library(treeio)
+library(ggtree)
+tree_nar <- treeio::read.nexus("data/nar_tree.nex.trprobs") %>% 
+  phangorn::maxCladeCred() %>% 
+  drop.tip("Ecoli_TorZ") # E.coli is the outgroup
+branch.length <- 5
+tree_nar$root_edge <- 2
+p_nar <- 
+  tree_nar %>% 
+  ggtree() +
+  #geom_tiplab() + 
+  geom_rootedge(rootedge = 0.3)
+p_nar <- p_nar %>% flip(13, 11) %>% flip(5, 12)
+
+tree_nap <- treeio::read.nexus("data/nap_tree.nex.trprobs") %>% 
+  phangorn::maxCladeCred() %>% 
+  drop.tip("Ecoli_TorZ") # E.coli is the outgroup
+tree_nap$root_edge <- 2
+p_nap <- 
+  tree_nap %>% 
+  ggtree() +
+  #geom_tiplab() + 
+  geom_rootedge(rootedge = 0.3)
+p_nap <- p_nap %>% flip(1, 7) %>% flip(5, 9)
+
+# combine tree
+p_tree <- 
+  cowplot::plot_grid(
+    p_nar + labs(y = "Nar Reductase") + 
+      theme(text = element_text(size = 16),
+            plot.margin = margin(b = -5)), 
+    p_nap + labs(y = "Nap Reductase") + 
+      theme(text = element_text(size = 16),
+            plot.margin = margin(t = -5)), 
+    ncol = 1L,
+    rel_heights = c(7, 5)
+  )
+p_tree
 ```
 
-## plot napA tree
-```{r}
-cred_nap <- maxCladeCred(tree_nap)
-nap_rotate <- rotate(cred_nap, 7)
-plotTree(nap_rotate)
-```
+## Full plot
 
+```{r "4_18_15_ratio_summary_all", fig.width = 6.5, fig.height = 8, eval = TRUE, warning=FALSE}
+library(cowplot)
+
+# left plot
+p_left <- plot_grid(
+  ggdraw(),
+  p_tree + theme(plot.margin = margin(b = 40, t = 4)), 
+  ncol = 1L, rel_heights = c(0.2, 0.8)
+)
+
+# right plot
+p_right <- 
+  plot_grid(
+    p4_top + 
+      geom_point(
+        mapping = aes(y = ON_ratio, shape = nitrate_reductases, color = nitrate_reductases),
+        size = 0, alpha = 0
+      ) +
+      scale_color_manual(values = c("#660099", "#CC0000", "#0066CC"), drop = FALSE) +
+      scale_shape_manual(values = c(15, 17, 16), drop = FALSE) +
+      guides(color = guide_legend(override.aes = list(
+        linetype = 0, alpha = 1, size = 4.5, shape = c(15, 16, 17)
+      ))) +
+      labs(color = "Reductase\ngene(s)", shape = "Reductase\ngene(s)") +
+      theme(
+        legend.position = "left", 
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank()
+      ), 
+    p4 + theme(legend.position = "none"),
+    ncol = 1L, align = "v", axis = "lr", rel_heights = c(0.2, 0.8)
+  )
+
+# combined plot
+plot_grid(p_left, p_right, nrow = 1, rel_widths = c(0.25, 0.75))
+```
