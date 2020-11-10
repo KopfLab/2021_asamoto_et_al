@@ -56,6 +56,7 @@ nb_files <- tibble(
 )
 docs_files <- 
   bind_rows(rmd_files, nb_files) %>% 
+  filter(str_detect(basename(source_file), "^\\d")) %>% 
   mutate(
     source_copy = file.path(target_folder, source_file),
     source_file_hash = tools::md5sum(source_file),
