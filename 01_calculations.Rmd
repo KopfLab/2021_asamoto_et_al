@@ -137,19 +137,15 @@ coupling_data
 # calculate growth rates for each replicate
 growth_rates_data <- 
   growth_data %>% 
-  nest(data = c(-exp_id, -culture))%>% 
-  mutate(
-    n_datapoints = map_int(data, nrow),
-    fit = map(data, ~SummarizeGrowth(.x$hour, .x$OD)),
-    info = map(fit, ~as.data.frame(setNames(as.list(as.numeric(.x$vals)), names(.x$vals)))),
-    hour_min = map_dbl(data, ~min(.x$hour)), # data range min
-    hour_max = map_dbl(data, ~max(.x$hour)) # data range max
+  #group_by(exp_id, culture) %>% 
+  estimate_growth_curve_parameters(
+    time = hour, N = OD,
+    group_by = c(exp_id, culture)
   ) %>% 
-  unnest(info) %>% 
   select(
-    exp_id, culture, n_datapoints, hour_min, hour_max,
-    OD0 = n0, # OD at t0
-    K = k, # carrying capacity (i.e. OD max)
+    exp_id, culture, n_datapoints, hour_min = time_min, hour_max = time_max,
+    OD0 = N0, # OD at t0
+    K = K, # carrying capacity (i.e. OD max)
     mu.1_hr = r, # growth rate in 1/hr
     mu_se.1_hr = r_se # standard error of the growth rate
   )
