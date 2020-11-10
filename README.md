@@ -2,9 +2,9 @@
 
 This repository holds all supplementary source code needed to reproduce the calculations and plots of the following manuscript: 
 
-**Asamoto CK, Rempfert KR, Luu VH, Younkin AD, Sigman DM, Kopf SH. Enzyme specific isotope effects of the Nap and Nar reductases. *In Review*.**
+**Asamoto CK, Rempfert KR, Luu VH, Younkin AD, Sigman DM, Kopf SH. Enzyme specific isotope effects of the Nap and Nar nitrate reductases. *In Review*.**
 
-The fully compiled analysis files are available as [HTML reports](https://2020_asamoto_et_al.kopflab.org/). For the easiest way to run the source [R Markdown](http://rmarkdown.rstudio.com/) (.Rmd) files that produce these HTML reports yourself along with the data figures in PDF and PNG format and the data tables in XLSX format, please follow the instructions below.
+The fully compiled analysis files are available as [HTML reports](https://www.kopflab.org/2020_asamoto_et_al/). For the easiest way to run the source [R Markdown](http://rmarkdown.rstudio.com/) (.Rmd) files that produce these HTML reports yourself along with the data figures in PDF and PNG format and the data tables in XLSX format, please follow the instructions below.
 
 ## What is R Markdown?
 
@@ -14,10 +14,10 @@ The fully compiled analysis files are available as [HTML reports](https://2020_a
 
 ### Option 1: Run it in the cloud using [binder](https://mybinder.org/)
 
-1. Use the following links to load this entire repository and all its dependencies in an online RStudio or Jupyter Lab instance (note that this may take a few minutes to launch):
-   - <a href='https://mybinder.org/v2/gh/KopfLab/2020_asamoto_et_al/binder-r?urlpath=git-pull?repo=https%3A%2F%2Fgithub.com%2FKopfLab%2F2020_asamoto_et_al%26branch%3Dmaster%26urlpath%3Drstudio'><img src='https://img.shields.io/badge/launch%20in-RStudio-blue.svg'/></a>
-   - <a href='https://mybinder.org/v2/gh/KopfLab/2020_asamoto_et_al/binder-r?urlpath=git-pull?repo=https%3A%2F%2Fgithub.com%2FKopfLab%2F2020_asamoto_et_al%26branch%3Dmaster%26urlpath%3Dlab'><img src='https://img.shields.io/badge/launch%20in-Jupyter-orange.svg'/></a>
-1. In the online RStudio: open and work with any of the R Markdown (.Rmd) files in the file browser. You can generate an HTML report ("knit HTML") by selecting File --> Knit from the menu. The HTML report will be displayed upon successful completion and is saved as a standalone file in the same directory (these are the files made [available online](https://2020_asamoto_et_al.kopflab.org/)). All generated data figures are saved as PDF and PNG in the `figures` sub-directory. All generated data tables are saved as XLSX in the `tables` sub-directory.
+1. Use the following links to load this entire repository and all its dependencies in an online RStudio or Jupyter Lab instance (note that these may take a few minutes to launch):
+   - [![RStudio Binder](https://img.shields.io/badge/explore%20online-in%20RStudio-blue.svg)](http://beta.mybinder.org/v2/gh/kopflab/2020_asamoto_et_al/master?urlpath=rstudio)
+   - [![Jupyter Binder](https://img.shields.io/badge/explore%20online-in%20Jupyter-orange.svg)](http://beta.mybinder.org/v2/gh/kopflab/2020_asamoto_et_al/master?urlpath=lab)
+1. In the online RStudio: open and work with any of the R Markdown (.Rmd) files in the file browser. You can generate an HTML report ("knit HTML") by selecting File --> Knit from the menu. The HTML report will be displayed upon successful completion and is saved as a standalone file in the same directory (these are the files made [available online](https://www.kopflab.org/2020_asamoto_et_al/)). All generated data figures are saved as PDF and PNG in the `figures` sub-directory. All generated data tables are saved as XLSX in the `tables` sub-directory.
 1. In the online Jupyter lab: open and work with any of the notebook (.ipynb) files in the file browser. 
 1. Make sure to download any edited or generated files you want to keep. They will disappear once you close the binder instance (or once it gets terminated due to inactivity).
 
@@ -31,7 +31,7 @@ The quickest and easiest way is to use RStudio.
  1. Navigate to the directory and double-click the `project.Rproj` file to start RStudio and load this project.
  1. Install the required libraries by running the following command in the Console in RStudio: `install.packages(c("tidyverse", "latex2exp", "cowplot", "broom", "phangorn", "BiocManager"))` followed by `BiocManager::install("ggtree")` or by installing them manually in RStudio's Packages manager.
  1. Open any of the R Markdown (.Rmd) files in the file browser
- 1. To generate an HTML report ("knit HTML"), select File --> Knit from the menu. The HTML report will be displayed upon successful completion and is saved as a standalone file in the same directory (these are the files made [available online](https://2020_asamoto_et_al.kopflab.org/) and linked in the SI). All generated data figures are saved as PDF and PNG in the `figures` sub-directory. All generated data tables are saved as XLSX in the `tables` sub-directory.
+ 1. To generate an HTML report ("knit HTML"), select File --> Knit from the menu. The HTML report will be displayed upon successful completion and is saved as a standalone file in the same directory (these are the files made [available online](https://www.kopflab.org/2020_asamoto_et_al/) and linked in the SI). All generated data figures are saved as PDF and PNG in the `figures` sub-directory. All generated data tables are saved as XLSX in the `tables` sub-directory.
  
 ## What can I do with this code?
 
