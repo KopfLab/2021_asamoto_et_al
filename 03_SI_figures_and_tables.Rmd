@@ -22,6 +22,7 @@ library(latex2exp)
 library(readxl)
 source(file.path("scripts", "plotting_functions.R"))
 source(file.path("scripts", "table_functions.R"))
+source(file.path("scripts", "growth_functions.R"))
 
 # global knitting options for automatic saving of all plots as .png and .pdf
 knitr::opts_chunk$set(
@@ -140,9 +141,11 @@ ps1_data <-
 ps1_fit <- 
   growth_rates_data %>% 
   left_join(exp_strains, by = c("exp_id")) %>% 
-  mutate(hour = map2(hour_min, hour_max, seq, length.out = 100)) %>% 
-  unnest(hour) %>% 
-  mutate(OD = K/(1 + ((K - OD0)/OD0) * exp(-mu.1_hr * hour)))
+  generate_logistic_curve(
+    time = hour, N = OD, N0 = OD0, 
+    time_min = hour_min, time_max = hour_max,
+    K = K, r = mu.1_hr
+  )
 
 # generate plot
 ps1 <- 

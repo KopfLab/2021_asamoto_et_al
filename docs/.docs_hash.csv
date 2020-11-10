@@ -1,2 +1,4 @@
 type,source_file,source_copy,source_file_hash,doc_file,last_success,last_fail
-RMarkdown,example.Rmd,docs/rmarkdown/example.Rmd,01a53dccf83e6483de2310a941c223bf,docs/rmarkdown/example.html,2020-02-17 00:40:27 MST,NA
+RMarkdown,01_calculations.Rmd,docs/rmarkdown/01_calculations.Rmd,47f17751bcdcce52bc7a816846c54f02,docs/rmarkdown/01_calculations.html,2020-11-09 16:29:38 MST,NA
+RMarkdown,02_figures_and_tables.Rmd,docs/rmarkdown/02_figures_and_tables.Rmd,c449f190a18cd3942492a192713e1544,docs/rmarkdown/02_figures_and_tables.html,2020-11-09 16:29:38 MST,NA
+RMarkdown,03_SI_figures_and_tables.Rmd,docs/rmarkdown/03_SI_figures_and_tables.Rmd,2e916ea8405018e94dfcdd0e42d0638d,docs/rmarkdown/03_SI_figures_and_tables.html,2020-11-09 16:29:38 MST,NA

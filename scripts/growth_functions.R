@@ -1,142 +1,191 @@
-# Thes functions are from the growthcurver package by Kathleen Sprouffske which is no longer available on CRAN and thus the function is included here directly.
-
-#' Number of Cells at Time t
-#'
-#' This function gives the number of cells or absorbance (N) at time t when
-#' the parameters to the logistic equation are K, N0, and r.
-#' @param k       The carrying capacity
-#' @param n0      The initial population size (absorbance or individuals)
-#' @param r       The exponential "growth rate"
-#' @param t       The time at which you want to know N
-#' @return        The number of cells, or N, at time t
-#' @export
-NAtT <- function(k, n0, r, t) {
-  return( k / (1 + ((k - n0) / n0) * exp(-r * t)))
+#' Corrects for background 
+#' 
+#' This function corrects a vector of cell counts or absorbance readings for the minimum value. 
+#' Typically applied to grouped or nested datasets prior to fitting the logistic curve.
+#' @inheritParams fit_logistic_curve
+correct_for_min_background <- function(data_n) {
+  if (all(is.na(data_n))) return(NA_real_)
+  return(data_n - min(data_n, na.rm = TRUE))
 }
 
-
-# Slope At Time t
-#
-# This function gives the growth rate (or slope of the curve) when
-# the parameters to the logistic equation are K, N0, and r.
-# @param k       The carrying capacity
-# @param n0      The initial population size (absorbance or individuals)
-# @param r       The exponential "growth rate"
-# @param t       The time at which you want to know the growth rate
-# @return        The number of cells, or N, at time t
-SlopeAtT <- function(k, n0, r, t) {
-  n <- NAtT(k, n0, r, t)
-  return(r * n * (k - n) / k)
+#' Corrects for background 
+#' 
+#' Correct for background by subtracting a constant.
+#' @inheritParams fit_logistic_curve
+correct_for_fixed_background <- function(data_n, bgrd = 0) {
+  return(data_n - bgrd)
 }
 
-# Fastest Doubling Time
-#
-# This function gives you the maximum doubling time (DT) assuming exponential
-# growth.
-# @param r       The exponential "growth rate"
-# @return        The maximum doubling time
-MaxDt <- function(r) {
-  return(log(2) / r)
+#' Corrects for background 
+#' 
+#' Correct for background using a condition
+#' @inheritParams fit_logistic_curve
+correct_for_fixed_background <- function(data_n, cond) {
+  stopifnot(!missing(data_n))
+  stopifnot(!missing(cond))
+  stopifnot(is.logical(cond))
+  stopifnot(length(cond) == 1 || length(cond) == length(data_n))
+  bgrd <- data_n[cond]
+  if (all(is.na(bgrd))) return(data_n)
+  return(data_n - mean(bgrd, na.rm = TRUE))
 }
 
-
-# Doubling (Generation) Time at Time t
-#
-# This function gives you the doubling time (DT) at time t when the parameters
-# of the logistic equation are K, N0, and r.
-# @param k       A single integer specifying the carrying capacity
-# @param n0      The initial population size
-#                (in either absorbance or individuals)
-# @param r       The exponential "growth rate"
-# @param t       The time at which you want to know the doubling time
-# @return        The doubling time at time t
-DtAtT <- function(k, n0, r, t) {
-  n_t <- NAtT(k, n0, r, t)
-  n_halft <- 0.5 * n_t
-  return(( 1 / r) * log((n_t * (k - n_halft)) / ((k - n_t) * n_halft)))
-}
-
-
-# Time at Inflection Point
-#
-# This function returns the time of the inflection point
-# of the logistic equation with parameters K, N0, and r.
-# @param k       A single integer specifying the carrying capacity
-# @param n0      The initial population size
-#                (in either absorbance or individuals)
-# @param r       The exponential "growth rate"
-# @return        The time of the inflection point, which occurrs when the
-#                the population size N reaches half its maximum value, K
-TAtInflection <- function(k, n0, r) {
-  if (n0 == 0) {
-    warning("Initial population size (n0) cannot be 0.")
-    return(0)
+#' Mark data points after the population maximum
+#' 
+#' Function operates on a data frame holding growth curve(s) and marks data points that occur AFTER the peak in population as belonging to the death phase. Either pre-group or use the \code{group_by} parameter to specify what constitutes a single growth curve.
+#' @inheritParams fit_logistic_curve
+#' @return data frame with new column \code{death_phase}
+mark_death_phase <- function(df, time, N, group_by = NULL, quiet = FALSE) {
+  
+  # safety checks
+  if (missing(time)) stop("specify a 'time' column", call. = FALSE)
+  if (missing(N)) stop("specify a population size 'N' column", call. = FALSE)
+  
+  # get expressions
+  time_col <- rlang::enexpr(time)
+  N_col <- rlang::enexpr(N)
+  
+  # grouping
+  group_by_expr <- rlang::enexpr(group_by)
+  if (!rlang::is_null(group_by_expr)) {
+    if (rlang::is_call(group_by_expr) && rlang::call_name(group_by_expr) == "c") {
+      group_by_cols <- rlang::call_args(group_by_expr)
+    } else {
+      group_by_cols <- list(group_by_expr)
+    }
+    df <- df %>% dplyr::group_by(!!!group_by_cols)
   }
-  t_inflection <- log(abs(k - n0) / n0) / r
-  return(t_inflection)
-}
 
-
-# Area Under the Logistic Curve
-#
-# This function gives you the area under the curve from time t_min to t_max,
-# when the parameters of the logistic equation are K, N0, and r. This value
-# essentially combines the lag phase, growth rate, and carrying capacity
-# into a single value.
-# @param k       The carrying capacity
-# @param n0      The initial population size
-#                (in either absorbance or number of individuals)
-# @param r       The exponential "growth rate"
-# @param t_min   The time from which you want to know the area under the curve
-#                (e.g., from time = t_min to t_max)
-# @param t_max   The time to which you want to know the area under the curve
-#                (e.g., from time = t_min to t_max)
-# @return        The area under the curve for logistic equation with the
-#                given parameters, for the specificed time range
-AreaUnderCurve <- function(k, n0, r, t_min = 0, t_max) {
-  auc_l <- stats::integrate(function(x) NAtT(k, n0, r, x), t_min, t_max)
-  return(auc_l)
-}
-
-
-
-# Area Under the Empirical Curve
-#
-# This function returns the empirical "area under the curve". It uses the input
-# data to do so (rather than using the logistic fit).
-# @param data_t    A vector of timepoints (data_n must also
-#                  be provided and be the same length).
-# @param data_n    A vector of cell counts or absorbance readings.
-# @param t_trim    Add up the area under the curve from the beginning to
-#                  t_trim. Defaults to 0, which means don't trim.
-# @return          The area under the curve
-EmpiricalAreaUnderCurve <- function(data_t, data_n, t_trim = 0) {
-  # make sure that both inputs are vectors
-  if (!is.vector(data_t) | !is.vector(data_n)) {
-    stop("Error: The input data (data_t and data_n) must be vectors.")
-  }
-  if (!is.numeric(data_t) | !is.numeric(data_n)) {
-    stop("Error: The input data (data_t and data_n) must be numeric.")
-  }
-  if (t_trim > 0) {
-    idx_to_keep <- data_t <= t_trim                # keep the early measurements
-  }
-  else {
-    idx_to_keep < rep(TRUE, length(data_t))       # keep all measurements
+  # info
+  if (!quiet) {
+    grouped_by <- ""
+    if(length(grps <- dplyr::group_vars(df)) > 0) 
+      grouped_by <- sprintf(" (grouped by '%s')", paste(grps, collapse = "', '"))
+    sprintf("Info: marking death phase for %d growth curves%s... ", 
+            dplyr::n_groups(df), grouped_by) %>% 
+      message()
   }
   
-  x <- data_t[idx_to_keep]
-  y <- data_n[idx_to_keep]
-  n <- length(x)
+  # mark death phase
+  df <- df %>% 
+    # find time at N max
+    mutate(
+      ..peak_time.. = 
+        if (all(is.na(!!N_col))) NA_real_
+        else (!!time_col)[which(!!N_col == max(!!N_col, na.rm = TRUE))[1]],
+      death_phase = ifelse(is.na(..peak_time..), FALSE, !!time_col > ..peak_time..)
+    ) %>% 
+    # cleanup
+    select(-..peak_time..)
   
-  auc_e <- sum((x[2:n] - x[1:n-1]) * (y[2:n] + y[1:n-1]) /  2)
-  return(auc_e)
+  # ungroup if group_by was provided
+  if (!rlang::is_null(group_by_expr)) {
+    df <- df %>% ungroup()
+  }
+  
+  return(df)
+} 
+
+#' Calculates growth curve parameters.
+#' 
+#' Uses fit_logistic_curve and extract_logistic_fit_parameters to simplify fitting logistic curves in a safe manner across multiple experiments in a data frame (pre-group before calling this function or provide the \code{group_by} parameter).
+#' 
+#' @param df pre-grouped data frame
+#' @param time the time column
+#' @param N the population size column (background corrected if appropriate)
+#' @param group_by what identifies an individual growth curve? use c(x, y, z) to group by multiple colums
+#' @param extract_parameters whether to extract the fit parameters automatically from the fit (if TRUE, use \code{coefficient_select} and \code{summary_select} to specify extraction)
+#' @inheritParams extract_logistic_fit_parameters
+#' @param keep_fit whether to keep the nls fit as a column (NO by default if parameters are extracted, otherwise YES)
+#' @param quiet whether to provide summary information on the fits
+#' @return data frame with summarized growth curve parameters
+estimate_growth_curve_parameters <- function(
+  df, time, N, group_by = NULL,
+  extract_parameters = TRUE, 
+  summary_select = c(n_used = nobs, rmsd = deviance),
+  coefficient_select = c(N0 = estimate_N0, N0_se = std.error_N0,
+                         K = estimate_K, K_se = std.error_K, 
+                         r = estimate_r, r_se = std.error_r),
+  keep_fit = !extract_parameters, quiet = FALSE) {
+  
+  # safety checks
+  if (missing(time)) stop("specify a 'time' column", call. = FALSE)
+  if (missing(N)) stop("specify a population size 'N' column", call. = FALSE)
+  
+  # get expressions
+  time_col <- rlang::enexpr(time)
+  N_col <- rlang::enexpr(N)
+  
+  # data frame
+  df <- df %>% filter(!is.na(!!time_col), !is.na(!!N_col))
+  
+  # grouping
+  group_by_expr <- rlang::enexpr(group_by)
+  if (!rlang::is_null(group_by_expr)) {
+    if (rlang::is_call(group_by_expr) && rlang::call_name(group_by_expr) == "c") {
+      group_by_cols <- rlang::call_args(group_by_expr)
+    } else {
+      group_by_cols <- list(group_by_expr)
+    }
+    df <- df %>% dplyr::group_by(!!!group_by_cols)
+  }
+  
+  # info
+  if (!quiet) {
+    grouped_by <- ""
+    if(length(grps <- dplyr::group_vars(df)) > 0) 
+      grouped_by <- sprintf(" (grouped by '%s')", paste(grps, collapse = "', '"))
+    sprintf("Info: estimating growth parameters for %d growth curves%s... ", 
+            dplyr::n_groups(df), grouped_by) %>% 
+      message(appendLF = FALSE)
+  }
+  
+  # fit logistic curve
+  safely_fit_logistic_curve <- purrr::safely(fit_logistic_curve)
+  df_fits <-
+    df %>% 
+    summarize(
+      time_min = min(!!time_col), # data range min
+      time_max = max(!!time_col), # data range max
+      n_datapoints = length(!!N_col), # number of total data points
+      safe_fit = list(safely_fit_logistic_curve(!!time_col, !!N_col)),
+      fit = map(safe_fit, ~.x$result),
+      error = map_chr(safe_fit, ~{
+        if (!is.null(.x$error)) .x$error$message
+        else NA_character_
+      }),
+      .groups = "drop"
+    ) %>% 
+    select(-safe_fit)
+  
+  # info
+  if (!quiet) {
+    sprintf("%d curves fitted successfully.", sum(is.na(df_fits$error))) %>% 
+      message()
+  }
+  
+  # extract fit parameters
+  if (extract_parameters) 
+    df_fits <- df_fits %>% 
+      mutate(params = map(
+        fit, extract_logistic_fit_parameters, 
+        summary_select = !!enquo(summary_select),
+        coefficient_select = !!enquo(coefficient_select)
+      )) %>% 
+      unnest(cols = c(params), keep_empty = TRUE)
+  
+  # keep fit
+  if (!keep_fit) 
+    df_fits <- df_fits %>% select(-fit)
+  
+  # return result
+  return(df_fits)
 }
 
 #' Fits a logistic curve to data.
 #'
 #' This function fits a logistic curve to the supplied data, namely
-#' n(t) = K / (1 + ( (K - N0) / N0) * exp(-r * t), where
+#' N(t) = K / (1 + ( (K - N0) / N0) * exp(-r * t), where
 #' N(t) is the number of cells (or density) at time t,
 #' K is the carrying capacity,
 #' N0 is the initial cell count or density, and
@@ -145,258 +194,121 @@ EmpiricalAreaUnderCurve <- function(data_t, data_n, t_trim = 0) {
 #'                  be provided and be the same length).
 #' @param data_n    A vector of cell counts or absorbance readings.
 #' @return          An object of class nls.
-#' @keywords        growth curves
-FitLogistic <- function(data_t, data_n) {
+fit_logistic_curve <- function(data_t, data_n) {
   
-  # make sure that the inputs are valid
-  if (!is.vector(data_t) | !is.vector(data_n)) {
-    stop("Error: The input data (data_t and data_n) must be vectors.")
-  }
-  if (!is.numeric(data_t) |!is.numeric(data_n)) {
-    stop("Error: The input data (data_t and data_n) must be numeric.")
-  }
-  if (length(data_t) != length(data_n)) {
-    stop("Error: The input data (data_t and data_n) must have the same length.")
-  }
+  # safety checks
+  if (!is.numeric(data_t) |!is.numeric(data_n))
+    stop("the input data (data_t and data_n) must be numeric vectors", call. = FALSE)
+  if (length(data_t) != length(data_n))
+    stop("the input data (data_t and data_n) must have the same length", call. = FALSE)
   
-  # put together data
-  d <- data.frame(cbind(data_t, data_n))
-  names(d) <- c("t", "n")
+  # create dataset
+  df <- tibble(time = data_t, N = data_n) %>% 
+    # remove entries that will not be useful for fitting (exclude all negative and 0 N)
+    filter(!is.na(N), !is.na(time), N > 0)
   
-  # make some guesses for the initial parameter values
-  k_init <- max(data_n)   # carrying capacity is near the max
-  n0_init <- min(data_n[data_n > 0])  # init population size is near the min
+  # check for enough data
+  if (!nrow(df) >= 3)
+    stop("need at least 3 positive data points, background correct if appropriate.", call. = FALSE)
   
-  # make an initial estimate for r
-  glm_mod <- stats::glm(n / k_init ~ t,
-                        family = stats::quasibinomial("logit"),
-                        data = d)
+  # estimate initial parameters
+  K_init <- max(df$N) # carrying capacity is near the max
+  N0_init <- min(df$N) # initial population size is near the min
   
-  r_init <- stats::coef(glm_mod)[[2]]   # slope
-  if (r_init <= 0) {
-    # the slope should only be positive for a growing culture, so default
-    # to something small
-    r_init <- 0.001
-  }
-  
-  suppressWarnings(
-    nls_mod <- tryCatch(
-      minpack.lm::nlsLM(n ~ k / (1 + ( (k - n0) / n0) * exp(-r * t)),
-                        start = list(k = k_init,
-                                     n0 = n0_init,
-                                     r = r_init),
-                        control = list(maxiter = 500),
-                        lower = c(stats::median(data_n), 0, 0),
-                        upper = c(Inf, max(data_n), Inf),
-                        data = d),
-      error = function(e) {
-        stop("Error: Growthcurver FitLogistic cannot fit data.")
-      }
-    )
+  # make an initial estimate for growth rate r
+  glm_fit <- stats::glm(
+    N / K_init ~ time,
+    family = stats::quasibinomial("logit"),
+    data = df
   )
-  return(nls_mod)
-}
-
-#' Summarize Growth Curves
-#'
-#' This function finds the parameters that describe the input data's growth.
-#' It does so by fitting the logistic curve to your growth curve measurements.
-#'
-#' The logistic curve equation is
-#' \deqn{N_t = \frac{N_0 K} {N_0 + (K-N_0)e^{-rt}}}{N_t = N_0 K / (N_0 + (K - N_0) exp(-rt))}
-#' where \eqn{N_t} is the number
-#' of cells (or the absorbance reading) at time t, \eqn{N_0} is the initial
-#' cell count (or absorbance reading), K is the carrying capacity, and r is the
-#' growth rate.
-#'
-#' The fitness proxies returned are the parameters of the logistic equation
-#' and the area under the curve (a measure that integrates the effects
-#' of \eqn{N_0}, K, and r). See \code{\link{gcfit}} for more documentation on these.
-#' @param data_t     A vector of timepoints (data_n must also
-#'                   be provided and be the same length).
-#' @param data_n     A vector of cell counts or absorbance readings.
-#' @param t_trim     Measurements taken after this time should not be included
-#'                   in fitting the curve. If stationary phase is variable,
-#'                   this may give you a better fit. A value of 0 means no
-#'                   trimming. Defaults to no trimming (0).
-#' @param bg_correct The background correction method to use. No background
-#'                   correction is performed for the default "none". Specifying
-#'                   "min" subtracts the smallest value in a column from all the
-#'                   rows in that column, and specifying "blank" subtracts
-#'                   the values from the blank vector from the data_n vector.
-#' @param blank      A vector of absorbance readings from a blank well
-#'                   (typically contains only media) used for background
-#'                   correction. The corresponding blank value is subtracted
-#'                   from the data_n vector for each timepoint. Defaults to NA.
-#' @return           An object of type gcfit containing the "fitness" proxies,
-#'                   as well as the input data and the fitted model.
-#' @seealso
-#' See the accompanying Vignette for an example of how to use and interpret
-#' SummarizeGrowth. \url{bit.ly/1p7w6dJ}.
-#'
-#' See also \code{\link{gcfit}}.
-#' @examples
-#' # We can check that the parameters that are found are the same
-#' # as we use to generate fake experimental data. To do so, let's first
-#' # generate the "experimental" data using the logistic equation,
-#' # e.g., absorbance readings from a single well in a plate reader over time.
-#'
-#' k_in <- 0.5   # the initial carrying capacity
-#' n0_in <- 1e-5 # the initial absorbance reading
-#' r_in <- 1.2   # the initial growth rate
-#' N <- 50       # the number of "measurements" collected during the growth
-#'               # curve experiment
-#'
-#' data_t <- 0:N * 24 / N   # the times the measurements were made (in hours)
-#' data_n <- NAtT(k = k_in, n0 = n0_in, r = r_in, t = data_t) # the measurements
-#'
-#' # Now summarize the "experimental" growth data that we just generated
-#' gc <- SummarizeGrowth(data_t, data_n)
-#'
-#' # Get the possible metrics for fitness proxies
-#' gc$vals$r           # growth rate is a common choice for fitness
-#' gc$vals$t_gen       # doubling time, or generation time, is also common
-#' gc$vals$k
-#' gc$vals$n0
-#' gc$vals$auc_l
-#' gc$vals$auc_e
-#' gc$vals$t_mid
-#'
-#' # Compare the data with the fit visually by plotting it
-#' plot(gc)
-#'
-#' @export
-SummarizeGrowth <- function(data_t, data_n, t_trim = 0,
-                            bg_correct = "min", blank = NA) {
-
-  # make sure that both inputs are vectors
-  if (is.list(data_t) == TRUE) {
-    tryCatch( {data_t <- unlist(data_t)},
-              error = function(e) {stop("data_t is not a vector")}
-            )
-  }
-  if (is.list(data_n) == TRUE) {
-    tryCatch( {data_n <- unlist(data_n)},
-              error = function(e) {stop("data_n is not a vector")}
-            )
-  }
-  stopifnot(is.vector(data_t))
-  stopifnot(is.vector(data_n))
-
-  # make sure that the inputs are valid
-  if (!is.numeric(data_t) |!is.numeric(data_n)) {
-    stop("Error: The input data (data_t and data_n) must be numeric.")
-  }
-  if (length(data_t) != length(data_n)) {
-    stop("Error: The input data (data_t and data_n) must have the same number of rows")
-  }
-
-  # make sure that the background correction method is valid
-  if (!bg_correct %in% c("none", "min", "blank")) {
-    stop(paste0(bg_correct, "is not a valid option for bg_correct"))
-  }
-
-  # check for correctness of the blank (background correction) vector
-  if (bg_correct == "blank") {
-    if (is.list(blank) == TRUE) {
-      tryCatch( {blank <- unlist(blank)},
-                error = function(e) {stop("blank is not a vector")}
-      )
-      stopifnot(is.vector(blank))
-
-      if (!is.numeric(blank)) {
-        stop("Error: The blank data must be numeric.")
+  r_init <- stats::coef(glm_fit)[[2]]
+  
+  # make sure slope estimate is positive
+  if (is.na(r_init) || r_init <= 0) r_init <- 0.001
+  
+  # nls fit
+  fit <- 
+    tryCatch(
+      stats::nls(
+        formula = N ~ K/(1 + ((K - N0)/N0) * exp(-r * time)), 
+        data = df, 
+        start = list(K = K_init, N0 = N0_init, r = r_init),
+        control = list(maxiter = 500),
+        algorithm = "port",
+        lower = c(stats::median(df$N), 0, 0),
+        upper = c(Inf, max(df$N), Inf),
+      ),
+      error = function(e) {
+        stop("could not fit logistic equation")
       }
-      if (length(blank) != length(data_n)) {
-        stop("Error: The input data (data_n) and the background correction data (blank) must have the same number of rows.")
-      }
-    }
-  }
-
-  # check t_trim parameter and set dependent variables
-  if (t_trim > 0) {
-    t_max <- t_trim
-    data_n <- data_n[data_t < t_trim]
-    data_t <- data_t[data_t < t_trim]
-    if (bg_correct == "blank") {
-      blank <- blank[data_t < t_trim]
-    }
-  } else {
-    t_max <- max(data_t, na.rm=TRUE)
-  }
-
-  #do the background correction
-  if (bg_correct == "blank") {
-    data_n <- data_n - blank
-    data_n[data_n < 0] <- 0    # ensure readings are at least 0
-  }
-  else if (bg_correct == "min") {
-    data_n <- data_n - min(data_n)
-  }
-
-  tryCatch(
-    # code block
-    {log_mod = FitLogistic(data_t, data_n)},
-    # error handling block
-    error = function(e) {}
     )
-
-  # the data did not fit a logistic model
-  if (exists("log_mod") == FALSE) {
-    vals <- c(0, 0, 0, 0, 0, 0,
-              0, 0, 0, 0, 0,
-              0, 0, 0, 0)
+  
+  # checks whether results make sense
+  if(coefficients(fit)[['K']] < coefficients(fit)[['N0']]) {
+    stop("carrying capacity K smaller than N0")
   }
-  else {
-    p <- summary(log_mod)$coefficients
-    k <- p[1]
-    k_se <- p[4]
-    k_p <- p[10]
-    n0 <- p[2]
-    n0_se <- p[5]
-    n0_p <- p[11]
-    r <- p[3]
-    r_se <- p[6]
-    r_p <- p[12]
+  
+  # return value
+  return(fit)
+}
 
-    # get the inflection point, DT, auc, sigma, df
-    t_inflection <- TAtInflection(k, n0, r)
-
-    DT <- MaxDt(r)
-    sigma <- summary(log_mod)$sigma
-    df <- summary(log_mod)$df[2]
-
-    auc_l <- AreaUnderCurve(k, n0, r, 0, t_max)$value
-    auc_e <- EmpiricalAreaUnderCurve(data_t, data_n, t_max)
-    vals <- c(k, k_se, k_p, n0, n0_se, n0_p,
-              r, r_se, r_p, sigma, df,
-              t_inflection, DT, auc_l, auc_e)
-  }
-
-  val_names <- c("k", "k_se", "k_p", "n0", "n0_se", "n0_p",
-                 "r", "r_se", "r_p", "sigma", "df",
-                 "t_mid", "t_gen", "auc_l", "auc_e")
-  vals <- stats::setNames(as.list(vals), val_names)
-  class(vals) <- "gcvals"
-
-  if (exists("log_mod") == FALSE) {
-    vals$note <- "cannot fit data"
-    log_mod <- ""
-  }
-  else if (k < n0) {
-    vals$note <- "questionable fit (k < n0)"
-  }
-  else if (t_inflection < 0) {
-    vals$note <- "questionable fit"
-  }
-  else {
-    vals$note <- ""
-  }
-
-  ret <- list("vals" = vals, "model" = log_mod,
-              "data"=list("t" = data_t, "N" = data_n))
-  class(ret) <- "gcfit"
-  return(ret)
+#' Extract parameter estimates and fit statistics from the logistic fit
+#' @param nls_fit the nls fit object
+#' @param coefficient_select a dplyr::select statement for the coefficient columns
+#' @param summary_select a dplyr::select statement for the fit summary columns
+#' @return a tibble with the fit parameters
+extract_logistic_fit_parameters <- function(nls_fit, summary_select = everything(), coefficient_select = everything()) {
+  
+  # safety check
+  if (is.null(nls_fit)) return(tibble())
+  
+  # extract coefficients
+  coefs <- 
+    broom::tidy(nls_fit) %>% 
+    select(term, estimate, std.error) %>% 
+    tidyr::pivot_wider(names_from = term, values_from = c(estimate, std.error)) %>% 
+    select(!!enquo(coefficient_select))
+  
+  # extract summary
+  sums <-
+    broom::glance(nls_fit) %>% 
+    select(!!enquo(summary_select))
+  
+  # safety checks
+  stopifnot(nrow(coefs) == 1L)
+  stopifnot(nrow(sums) == 1L)
+  
+  # return
+  return(dplyr::bind_cols(sums, coefs))
 }
 
 
+#' Generate logistic curve
+#' 
+#' @param time colum name for time column (newly generated)
+#' @param N colum name for population size column (newly generated)
+#' @param time_min column name for start time of curve
+#' @param time_max column name for end time of curve
+#' @param N0 column name for initial populatio size (N0) parameter
+#' @param K column name for carrying capacity (K) parameter
+#' @param r column name for growth rate (r) parameter
+generate_logistic_curve <- function(df, time, N, time_min = time_min, time_max = time_max, N0 = N0, K = K, r = r) {
+  
+  # safety checks
+  if (missing(time)) stop("specify a 'time' column", call. = FALSE)
+  if (missing(N)) stop("specify a population size 'N' column", call. = FALSE)
+  
+  time_col <- rlang::enexpr(time)
+  N_col <- rlang::enexpr(N)
+  time_min_col <- rlang::enexpr(time_min)
+  time_max_col <- rlang::enexpr(time_max)
+  N0_col <- rlang::enexpr(N0)
+  K_col <- rlang::enexpr(K)
+  r_col <- rlang::enexpr(r)
+  
+  df %>%
+    mutate(!!time_col := purrr::map2(!!time_min_col, !!time_max_col, seq, length.out = 100)) %>%
+    unnest(!!time_col) %>%
+    mutate(!!N_col := !!K_col/(1 + ((!!K_col - !!N0_col)/!!N0_col) * exp(-!!r_col * !!time_col))) %>% 
+    filter(!is.na(!!N_col))
+}
