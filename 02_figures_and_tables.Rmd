@@ -21,6 +21,7 @@ library(tidyverse)
 library(latex2exp)
 library(cowplot)
 library(broom)
+library(openxlsx)
 source(file.path("scripts", "plotting_functions.R"))
 source(file.path("scripts", "table_functions.R"))
 

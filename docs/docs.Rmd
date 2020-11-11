@@ -209,7 +209,7 @@ summary <- rendered_doc_files %>%
       TRUE ~ last_fail)
   ) %>% 
   select(-target_folder)
-write_csv(select(summary, -generate, -success), path = hash_file)
+write_csv(select(summary, -generate, -success), hash_file)
 summary %>% knitr::kable()
 ```
 
