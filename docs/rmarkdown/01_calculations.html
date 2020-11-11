@@ -2945,7 +2945,7 @@ div.tocify {
 
 <h1 class="title toc-ignore">Calculations</h1>
 <h4 class="author">Ciara Asamoto, Sebastian Kopf</h4>
-<h4 class="date">Last knitted on 10 Nov 2020</h4>
+<h4 class="date">Last knitted on 11 Nov 2020</h4>
 
 </div>
 
@@ -2997,8 +2997,8 @@ iso_data_w_t0 &lt;-
   )
 
 # cache
-write_rds(conc_data_w_t0, path = file.path(&quot;cache&quot;, &quot;conc_data_w_t0.rds&quot;))
-write_rds(iso_data_w_t0, path = file.path(&quot;cache&quot;, &quot;iso_data_w_t0.rds&quot;))</code></pre>
+write_rds(conc_data_w_t0, file.path(&quot;cache&quot;, &quot;conc_data_w_t0.rds&quot;))
+write_rds(iso_data_w_t0, file.path(&quot;cache&quot;, &quot;iso_data_w_t0.rds&quot;))</code></pre>
 </div>
 <div id="calculate-fractionation-factors" class="section level1">
 <h1>Calculate fractionation factors</h1>
@@ -3025,7 +3025,7 @@ eps_data &lt;-
   select(-data, -starts_with(&quot;fit&quot;), -starts_with(&quot;coefs&quot;), -starts_with(&quot;summary&quot;))
 
 # cache
-write_rds(eps_data, path = file.path(&quot;cache&quot;, &quot;eps_data.rds&quot;))
+write_rds(eps_data, file.path(&quot;cache&quot;, &quot;eps_data.rds&quot;))
 eps_data</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
@@ -3052,7 +3052,7 @@ coupling_data &lt;-
   select(strain_id, medium, n_datapoints, ON_ratio, ON_ratio_se)
 
 # cache
-write_rds(coupling_data, path = file.path(&quot;cache&quot;, &quot;coupling_data.rds&quot;))
+write_rds(coupling_data, file.path(&quot;cache&quot;, &quot;coupling_data.rds&quot;))
 coupling_data</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
@@ -3079,7 +3079,7 @@ growth_rates_data &lt;-
   )</code></pre>
 <pre><code>## Info: estimating growth parameters for 30 growth curves (grouped by &#39;exp_id&#39;, &#39;culture&#39;)... 29 curves fitted successfully.</code></pre>
 <pre class="r"><code># cache
-write_rds(growth_rates_data, path = file.path(&quot;cache&quot;, &quot;growth_rates_data.rds&quot;))
+write_rds(growth_rates_data, file.path(&quot;cache&quot;, &quot;growth_rates_data.rds&quot;))
 growth_rates_data</code></pre>
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
