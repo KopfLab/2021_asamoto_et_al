@@ -20,6 +20,7 @@ editor_options:
 library(tidyverse) 
 library(latex2exp)
 library(readxl)
+library(openxlsx)
 source(file.path("scripts", "plotting_functions.R"))
 source(file.path("scripts", "table_functions.R"))
 source(file.path("scripts", "growth_functions.R"))

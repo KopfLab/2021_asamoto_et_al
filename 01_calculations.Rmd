@@ -19,7 +19,6 @@ editor_options:
 # load libraries
 library(tidyverse) 
 library(broom)
-library(minpack.lm)
 source(file.path("scripts", "growth_functions.R"))
 ```
 
@@ -73,8 +72,8 @@ iso_data_w_t0 <-
   )
 
 # cache
-write_rds(conc_data_w_t0, path = file.path("cache", "conc_data_w_t0.rds"))
-write_rds(iso_data_w_t0, path = file.path("cache", "iso_data_w_t0.rds"))
+write_rds(conc_data_w_t0, file.path("cache", "conc_data_w_t0.rds"))
+write_rds(iso_data_w_t0, file.path("cache", "iso_data_w_t0.rds"))
 ```
 
 # Calculate fractionation factors
@@ -103,7 +102,7 @@ eps_data <-
   select(-data, -starts_with("fit"), -starts_with("coefs"), -starts_with("summary"))
 
 # cache
-write_rds(eps_data, path = file.path("cache", "eps_data.rds"))
+write_rds(eps_data, file.path("cache", "eps_data.rds"))
 eps_data
 ```
 
@@ -127,7 +126,7 @@ coupling_data <-
   select(strain_id, medium, n_datapoints, ON_ratio, ON_ratio_se)
 
 # cache
-write_rds(coupling_data, path = file.path("cache", "coupling_data.rds"))
+write_rds(coupling_data, file.path("cache", "coupling_data.rds"))
 coupling_data
 ```
 
@@ -151,6 +150,6 @@ growth_rates_data <-
   )
 
 # cache
-write_rds(growth_rates_data, path = file.path("cache", "growth_rates_data.rds"))
+write_rds(growth_rates_data, file.path("cache", "growth_rates_data.rds"))
 growth_rates_data
 ```

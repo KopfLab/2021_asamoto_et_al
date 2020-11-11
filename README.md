@@ -29,7 +29,7 @@ The quickest and easiest way is to use RStudio.
  1. Download and install [RStudio](http://www.rstudio.com/products/rstudio/download/) for your operating system
  1. Download a [zip file of this repository](https://github.com/KopfLab/2020_asamoto_et_al/archive/master.zip) and unpack it in an easy to find directory on your computer
  1. Navigate to the directory and double-click the `project.Rproj` file to start RStudio and load this project.
- 1. Install the required libraries by running the following command in the Console in RStudio: `install.packages(c("tidyverse", "latex2exp", "cowplot", "broom", "phangorn", "BiocManager"))` followed by `BiocManager::install("ggtree")` or by installing them manually in RStudio's Packages manager.
+ 1. Install the required libraries by running the following command in the Console in RStudio: `install.packages(c("tidyverse", "latex2exp", "cowplot", "broom", "phangorn", "openxlsx", "BiocManager"))` followed by `BiocManager::install("ggtree")` or by installing them manually in RStudio's Packages manager.
  1. Open any of the R Markdown (.Rmd) files in the file browser
  1. To generate an HTML report ("knit HTML"), select File --> Knit from the menu. The HTML report will be displayed upon successful completion and is saved as a standalone file in the same directory (these are the files made [available online](https://www.kopflab.org/2020_asamoto_et_al/) and linked in the SI). All generated data figures are saved as PDF and PNG in the `figures` sub-directory. All generated data tables are saved as XLSX in the `tables` sub-directory.
  
