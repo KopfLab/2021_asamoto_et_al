@@ -2,7 +2,7 @@
 
 This repository holds all supplementary source code needed to reproduce the calculations and plots of the following manuscript: 
 
-**Asamoto CK, Rempfert KR, Luu VH, Younkin AD, Sigman DM, Kopf SH. Enzyme specific isotope effects of the Nap and Nar nitrate reductases. *In Review*.**
+**Asamoto CK, Rempfert KR, Luu VH, Younkin AD, Kopf SH. Enzyme specific isotope effects of the Nap and Nar nitrate reductases. *In Review*.**
 
 The fully compiled analysis files are available as [HTML reports](https://www.kopflab.org/2020_asamoto_et_al/). For the easiest way to run the source [R Markdown](http://rmarkdown.rstudio.com/) (.Rmd) files that produce these HTML reports yourself along with the data figures in PDF and PNG format and the data tables in XLSX format, please follow the instructions below.
 
