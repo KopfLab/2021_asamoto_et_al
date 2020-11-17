@@ -16,7 +16,7 @@ editor_options:
 
 [![Jupyter Binder](https://img.shields.io/badge/explore%20online-in%20Jupyter-orange.svg)](http://beta.mybinder.org/v2/gh/kopflab/2020_asamoto_et_al/master?urlpath=lab)
 
-# Rendered Notebooks
+## Rendered Notebooks
 
 ```{r setup, include=FALSE}
 library(tidyverse)
@@ -61,3 +61,7 @@ if (file.exists(hash_file)) {
   cat("No documents available yet.")
 }
 ```
+
+## What can I do with this code? <a href="https://creativecommons.org/licenses/by/4.0/"><img src="https://mirrors.creativecommons.org/presskit/buttons/88x31/png/by.png" align = "right" width = "100"/></a>
+
+We hope that this code, or any part of it, might prove useful to other members of the scientific community interested in the subject matter. This repository is released under a [Creative Commons BY (CC-BY)](https://creativecommons.org/licenses/by/4.0/) license, which means all code can be shared and adapted for any purpose as long as appropriate credit is given. See [Attribution section](https://creativecommons.org/licenses/by/4.0/) for details. 
