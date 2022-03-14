@@ -153,8 +153,8 @@ p2 <- p2_data %>%
   coord_cartesian(xlim = c(0, 60), ylim = c(0, 40)) +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
-  scale_color_manual(values = c("black", cb_palette[c(7,2:6)]), drop = FALSE) +
-  scale_shape_manual(values = c(22, rep(19, 4), rep(17, 2)), drop = FALSE) +
+  scale_color_manual(values = c("black", cb_palette[c(7,2, 3, 4)], "#755e43", cb_palette[c(5, 6)]), drop = FALSE) +
+  scale_shape_manual(values = c(22, rep(19, 5), rep(17, 3)), drop = FALSE) +
   scale_fill_manual(values = c("black", "grey")) +
   scale_linetype_manual(values = c(2, 1)) +
   theme_figure(text_size = 14) +
@@ -356,17 +356,20 @@ p4_top + theme(legend.position = "none")
 ```{r "4_18_15_ratio_summary_tree", fig.width = 2.5, fig.height = 6, eval = TRUE, warning=FALSE, message=FALSE}
 library(treeio)
 library(ggtree)
-tree_nar <- treeio::read.nexus("data/nar_tree.nex.trprobs") %>% 
-  phangorn::maxCladeCred() %>% 
+tree_nar <- treeio::read.nexus("data/nar_tree.nex.trprobs")[[1]] %>% 
+  #phangorn::maxCladeCred() %>% 
   drop.tip("Ecoli_TorZ") # E.coli is the outgroup
 branch.length <- 5
 tree_nar$root_edge <- 2
 p_nar <- 
   tree_nar %>% 
   ggtree() +
-  #geom_tiplab() + 
-  geom_rootedge(rootedge = 0.3)
+  geom_rootedge(rootedge = 0.3) +
+  geom_tiplab() + 
+  theme(plot.margin = margin(r = 100)) + 
+  coord_cartesian(clip = "off")
 p_nar <- p_nar %>% flip(13, 11) %>% flip(5, 12)
+p_nar
 
 tree_nap <- treeio::read.nexus("data/nap_tree.nex.trprobs") %>% 
   phangorn::maxCladeCred() %>% 
