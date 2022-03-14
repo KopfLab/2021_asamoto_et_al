@@ -16,17 +16,6 @@ We hope that this code, or any part of it, might prove useful to other members o
 
 ## How can I run this code?
 
-### Option 1: Run it in the cloud using [binder](https://mybinder.org/)
-
-1. Use the following links to load this entire repository and all its dependencies in an online RStudio or Jupyter Lab instance (note that these may take a few minutes to launch):
-   - [![RStudio Binder](https://img.shields.io/badge/explore%20online-in%20RStudio-blue.svg)](http://beta.mybinder.org/v2/gh/kopflab/2021_asamoto_et_al/master?urlpath=rstudio)
-   - [![Jupyter Binder](https://img.shields.io/badge/explore%20online-in%20Jupyter-orange.svg)](http://beta.mybinder.org/v2/gh/kopflab/2021_asamoto_et_al/master?urlpath=lab)
-1. In the online RStudio: open and work with any of the R Markdown (.Rmd) files in the file browser. You can generate an HTML report ("knit HTML") by selecting File --> Knit from the menu. The HTML report will be displayed upon successful completion and is saved as a standalone file in the same directory (these are the files made [available online](https://2021_asamoto_et_al.kopflab.org/)). All generated data figures are saved as PDF and PNG in the `figures` sub-directory. All generated data tables are saved as XLSX in the `tables` sub-directory.
-1. In the online Jupyter lab: open and work with any of the notebook (.ipynb) files in the file browser. 
-1. Make sure to download any edited or generated files you want to keep. They will disappear once you close the binder instance (or once it gets terminated due to inactivity).
-
-### Option 2: Run it on your desktop
-
 The quickest and easiest way is to use RStudio.
 
  1. Download and install [R](http://cran.rstudio.com/) for your operating system
