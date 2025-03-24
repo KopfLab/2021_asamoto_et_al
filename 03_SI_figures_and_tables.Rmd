@@ -67,27 +67,27 @@ coupling_data <- read_rds(file.path("cache", "coupling_data.rds"))
 
 ```{r}
 # prepare data
-all_data <- 
+table_s1_data <- 
   experiments %>% 
   left_join(strains, by = c("strain_id")) %>% 
   right_join(eps_data, by = c("exp_id")) %>% 
   left_join(coupling_data, by = c("strain_id", "medium")) %>% 
   left_join(growth_rates_data, by = c("exp_id", "culture")) %>% 
   arrange(name, medium, exp_id, culture) %>% 
-  transmute(
-    Species = name,
-    `Reductase genes` = nitrate_reductases,
-    Medium = medium,
-    Tracer = enriched_water,
-    `18eps / 15eps` = sprintf("%.2f +/- %.2f", ON_ratio, ON_ratio_se),
+  select("Species" = "name", "Reductase genes" = "nitrate_reductases", 
+         "Medium" = "medium", "Tracer" = "enriched_water",
+         mu.1_hr, mu_se.1_hr, 
+         eps15N.permil, eps15N_se.permil, eps18O.permil, eps18O_se.permil,
+         ON_ratio, ON_ratio_se)
+
+# save table
+table_s1 <- 
+  table_s1_data %>% 
+  mutate(
+     `18eps / 15eps` = sprintf("%.2f +/- %.2f", ON_ratio, ON_ratio_se),
     `15eps` = sprintf("%.1f +/- %.1f", eps15N.permil, eps15N_se.permil),
     `18eps` = sprintf("%.1f +/- %.1f", eps18O.permil, eps18O_se.permil),
     `Growth rate (1/hour)` = ifelse(!is.na(mu.1_hr), sprintf("%.2f +/- %.2f", mu.1_hr, mu_se.1_hr), NA),
-  )
-
-# save table
-all_data %>% 
-  mutate(
     same_species = c("DNE", head(Species, -1)) == Species,
     same_medium = same_species & c("DNE", head(Medium, -1)) == Medium,
     same_tracer = c("DNE", head(Tracer, -1)) == Tracer,
@@ -100,10 +100,17 @@ all_data %>%
     ),
     `18eps / 15eps` = ifelse(same_medium, NA_character_, `18eps / 15eps`)
   ) %>% 
-  select(-Tracer, -starts_with("same_")) %>% 
-  export_to_excel(file = file.path("tables", "table_S1.xlsx"))
+  select(-Tracer, -matches("^(same_|mu|eps)")) 
+
+
+# export
+export_to_excel(
+  formatted = table_s1,
+  data = table_s1_data,
+  file = file.path("tables", "table_S1.xlsx")
+)
   
-all_data
+table_s1
 ```
 
 # Prepare Plots
